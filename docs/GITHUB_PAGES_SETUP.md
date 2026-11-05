@@ -2,7 +2,16 @@
 
 ## 현재 상태와 공개 범위
 
-공개 저장소 [ksy980324/horangnabi-v2](https://github.com/ksy980324/horangnabi-v2)를 생성하고 Pages의 Source를 GitHub Actions로 지정했습니다. 아래 최초 생성 절차를 다시 실행할 필요는 없습니다. 실제 배포 결과와 남은 작업은 [진행 상황](PROGRESS.md)을 확인하세요. 현재 로컬 폴더는 아직 Git 저장소가 아니며 GitHub CLI 로그인은 갱신이 필요합니다. 연결된 GitHub 도구와 웹 로그인으로 원격 저장소를 설정했습니다.
+공개 저장소 [ksy980324/horangnabi-v2](https://github.com/ksy980324/horangnabi-v2)를 생성하고 Pages의 Source를 GitHub Actions로 지정했습니다. 로컬 v2 폴더에도 Git을 초기화하고 원격 origin/main을 연결해 소스를 커밋했습니다. **아래 최초 생성 절차를 다시 실행하지 마세요.** 현재 남은 단계는 지도 값 등록과 로컬 커밋 push입니다. 연결 GitHub 앱의 쓰기는 403으로 거절됐고 도구 실행 환경에서 Windows Git 인증 프로그램도 실행되지 않아 원격 소스 업로드는 아직 완료되지 않았습니다. 상세 상태는 [진행 상황](PROGRESS.md)을 확인하세요.
+
+현재 상태에서 이어가기:
+
+```powershell
+cd C:\Users\ct06\vscode-repos\horangnabi\horangnabi-v2
+git push -u origin main
+```
+
+로그인 창이 열리면 본인 GitHub 계정으로 로그인하세요. 인증이 실패하면 본인 PowerShell에서 `gh auth login --hostname github.com --git-protocol https --web --scopes workflow`를 실행한 뒤 push를 다시 시도하세요. 비밀번호/토큰을 채팅으로 전달하지 않습니다. 아래 3번의 Pages·지도 설정도 확인하세요.
 
 GitHub Free의 Pages는 공개 저장소를 사용합니다. 이 방식을 선택하면 소스 코드와 앱 화면이 공개되고, 로그인 없이 앱을 열 수 있습니다. 준비된 공개 대상은 이 `horangnabi-v2` 폴더의 소스·테스트·프로젝트 문서·설정 파일입니다. 상위 폴더의 기존 앱은 포함하지 않습니다. 실제 일정/보관함/준비물 데이터는 각 브라우저의 localStorage에 있으므로 저장소에 자동 업로드되지 않습니다. `.env.local`, 다른 환경 파일, 생성된 JSON 백업, node_modules, dist는 커밋하지 않습니다.
 

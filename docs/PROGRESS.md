@@ -4,6 +4,15 @@
 
 ## 현재 구현
 
+### 공개 승인 및 원격 저장소 생성 (2026-11-05)
+- 사용자가 ksy980324/horangnabi-v2 공개 저장소 생성과 앱 공개 배포를 승인했다. Chrome에 유지된 본인 GitHub 웹 로그인으로 README가 있는 공개 저장소를 생성했고 Pages의 Source를 GitHub Actions로 변경했다. 공개 범위 승인 여부를 다시 묻지 않는다.
+- 업로드 대상으로 소스/테스트/설정/문서 58개를 선별했고 .env.local/다른 환경 파일/개인 백업/node_modules/dist를 제외했다. 실제 Google 키 형태가 스테이징된 내용에 없는 것도 확인했다. 임시 소스 모음은 정리했다.
+- 연결 GitHub 앱의 create_tree는 403 Resource not accessible by integration으로 거부됐고 워크플로 파일을 제외한 최소 권한 시도도 동일했다. GitHub 앱 권한을 임의로 늘리지 않았다.
+- v2 하위 폴더에만 Git을 초기화하고 origin을 새 공개 저장소에 연결했다. origin/main의 초기 README 커밋을 fetch하여 부모 이력을 유지한 채 기존 로컬 앱 소스 58개를 커밋했다. 커밋 이름은 계정명, 이메일은 GitHub noreply 형식을 사용하여 개인 이메일을 공개하지 않았다. 상위 기존 프로젝트는 수정하지 않았다.
+- git push는 Git Credential Manager의 Windows 하위 프로세스 실행 실패(NtCreateDirectoryObject access denied)로 중단됐다. 원격 저장소에는 현재 초기 README만 있고 앱 소스 push/Actions 실행/실제 Pages 사이트 배포는 아직 완료되지 않았다. 사용자 VS Code/PowerShell에서 `git push -u origin main`을 실행해 이어갈 수 있다. 기존 GitHub CLI 인증 확인도 실패하므로 필요하면 본인 터미널에서 gh auth login을 진행한다.
+- Google Secret GOOGLE_MAPS_API_KEY와 Variable GOOGLE_MAP_ID는 아직 등록하지 않았다. 로컬 .env.local의 값을 읽거나 GitHub로 자동 전송하지 않았다. GitHub Secret과 실제 배포 호스트의 Google 키 허용 목록은 사용자 설정이 필요하다. DEMO_MAP_ID 대신 본인의 JavaScript용 Map ID를 사용한다.
+- 이번에는 런타임 기능을 변경하지 않고 저장소/배포 상태 문서를 갱신했다. 앞선 타입 검사·39개 테스트·기본/하위 경로 빌드 결과는 유지되며 원격 CI와 실제 외부 접속은 아직 미검증이다.
+
 ### GitHub Pages 배포 준비 (2026-11-05)
 - .github/workflows/deploy.yml을 추가했다. v2 내용을 저장소 루트에 두는 구조이며 main push/수동 실행으로 Node 24 설치, npm ci, 타입 검사/테스트, Pages 메타데이터 조회, 지도 설정 검사, 빌드, dist artifact 업로드, 배포를 수행한다. 공식 Actions를 검증된 commit SHA로 고정하고 build/deploy 권한과 timeout/concurrency를 설정했다.
 - Vite base는 빌드 환경의 PAGES_BASE_PATH로 지정하고 기본 상대 경로는 유지한다. 워크플로는 configure-pages의 base_path를 사용하여 저장소 하위 경로/루트 주소에 맞춘다. 서버 라우팅이나 사용자 데이터 저장 방식은 바꾸지 않았다.
