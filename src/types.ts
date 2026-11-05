@@ -1,0 +1,9 @@
+export const categories = ['관광', '맛집', '카페', '쇼핑', '숙소', '이동', '기타'] as const;
+export type Category = typeof categories[number];
+export type Place = { name: string; address: string; lat?: number; lng?: number };
+export type Stop = Place & { id: string; date: string; time: string; category: Category; memo: string };
+export type SavedPlace = Place & { id: string; category: Category; memo: string };
+export type TripDestination = { countryCode: string; cityName: string; lat?: number; lng?: number };
+export type PackingItem = { id: string; name: string; completed: boolean };
+export type Trip = { id: string; name: string; region: string; destination?: TripDestination; start: string; end: string; stops: Stop[]; savedPlaces?: SavedPlace[]; packingItems?: PackingItem[] };
+export type Database = { version: 1; trips: Trip[] };
