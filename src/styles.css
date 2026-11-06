@@ -234,3 +234,18 @@
 .trip-featured-caption p { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .trip-featured-caption p svg { flex-shrink: 0; }
 .trip-featured-arrow { position: absolute; right: 22px; bottom: 23px; }
+.reservations { max-width: 760px; margin: 0 auto; }
+.reservations-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.reservations-heading h2 { font-size: 20px; }
+.reservations-heading .primary { flex-shrink: 0; min-height: 44px; }
+.reservation-list { display: grid; gap: 12px; padding: 0; list-style: none; }
+.reservation-card { padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: #fff; overflow-wrap: anywhere; }
+.reservation-card-title h3 { margin: 8px 0 10px; font-size: 17px; }
+.reservation-kind { display: inline-flex; align-items: center; gap: 5px; color: var(--teal); font-size: 12px; }
+.reservation-details { display: grid; gap: 7px; margin: 0; font-size: 13px; }
+.reservation-details > div { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 8px; }
+.reservation-details dt { color: var(--muted); }
+.reservation-details dd { margin: 0; }
+.reservation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
+.reservation-actions > * { min-height: 44px; }
+.reservation-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
