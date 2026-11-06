@@ -23,14 +23,15 @@ export function StopPhoto({ name, lat, lng, photoUrl }: Place) {
   }, [name, lat, lng, savedUrl]);
 
   const url = savedUrl || photo?.url;
+  const image = url && url !== failedUrl && <img className="stop-photo" src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(url)}/>;
   return <>
     <span className="stop-photo-anchor" aria-hidden="true" ref={anchor}/>
-    {url && url !== failedUrl && <figure className="stop-photo-frame">
-      <img className="stop-photo" src={url} alt="" loading="lazy" referrerPolicy="no-referrer" onError={() => setFailedUrl(url)}/>
-      {!savedUrl && photo && <figcaption>
-        <a href={photo.source} target="_blank" rel="noopener noreferrer" title={photo.author || 'Wikimedia Commons'}>{photo.author || 'Wikimedia Commons'}</a>
+    {image && (savedUrl || !photo ? <div className="stop-photo-frame">{image}</div> : <details className="stop-photo-frame">
+      <summary aria-label={`${name} 사진 출처 보기`} title="사진 출처 보기">{image}</summary>
+      <div className="stop-photo-credit">
+        <a href={photo.source} target="_blank" rel="noopener noreferrer">{photo.author || 'Wikimedia Commons'}</a>
         {photo.licenseUrl ? <a href={photo.licenseUrl} target="_blank" rel="noopener noreferrer">{photo.license}</a> : <span>{photo.license}</span>}
-      </figcaption>}
-    </figure>}
+      </div>
+    </details>)}
   </>;
 }
