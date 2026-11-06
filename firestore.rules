@@ -1,0 +1,36 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isMember() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/settings/members)
+        && get(/databases/$(database)/documents/settings/members).data.uids is list
+        && get(/databases/$(database)/documents/settings/members).data.uids.size() <= 2
+        && request.auth.uid in get(/databases/$(database)/documents/settings/members).data.uids;
+    }
+
+    function validTrip(tripId) {
+      let data = request.resource.data;
+      return data.keys().hasAll(['trip', 'revision', 'updatedAt', 'updatedBy'])
+        && data.keys().hasOnly(['trip', 'revision', 'updatedAt', 'updatedBy'])
+        && data.trip is map
+        && data.trip.id == tripId
+        && data.revision is int
+        && data.updatedAt == request.time
+        && data.updatedBy == request.auth.uid;
+    }
+
+    match /settings/members {
+      allow get: if isMember();
+    }
+
+    match /trips/{tripId} {
+      allow read, delete: if isMember();
+      allow create: if isMember() && validTrip(tripId)
+        && request.resource.data.revision == 1;
+      allow update: if isMember() && validTrip(tripId)
+        && request.resource.data.revision == resource.data.revision + 1;
+    }
+  }
+}

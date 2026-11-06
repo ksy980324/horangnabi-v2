@@ -1,5 +1,7 @@
 # 호랑나비 · horangnabi-v2
 
+**[호랑나비 접속하기](https://ksy980324.github.io/horangnabi-v2/)** — GitHub Pages 공개 배포 완료. PC 실행 없이 휴대폰에서 접속할 수 있습니다. 기존 PC/LAN 일정은 JSON 백업·복원으로 가져오세요.
+
 우리 둘의 여행을 위한 모바일 중심 여행 플래너입니다. 기존 프로젝트를 건드리지 않고 이 하위 폴더에 독립적으로 구현했습니다. Firebase 계정은 필요하지 않습니다. Google Maps를 사용하려면 API 키와 결제 설정이 필요하며, 키 없이 실행하면 기존 무료 지도를 표시합니다.
 
 ## Google Maps 연결
@@ -81,8 +83,8 @@ docs/PRODUCT_SPEC.md      전체 제품 요구사항
 docs/PROGRESS.md          구현 상태와 검증 이력
 ```
 
-## GitHub Pages (후속 배포)
-`vite.config.ts`의 상대 경로 base로 저장소 하위 경로 배포를 지원합니다. `npm run build` 후 `dist` 내용을 Pages에 배포하면 됩니다. 소스 폴더 자체를 정적 파일로 올리면 실행되지 않습니다. 현재는 배포하지 않았습니다. 차후 GitHub Actions로 Node 설치 → 의존성 설치 → 검사/빌드 → `dist` 업로드 → Pages 배포를 설정하세요. 인증 없는 Pages 주소의 앱 소스/UI는 공개될 수 있지만, localStorage 여행 데이터가 서버로 업로드되지는 않습니다.
+## GitHub Pages
+main push 또는 수동 실행 시 GitHub Actions가 설치 → 검사/테스트 → 지도 설정 확인 → 빌드 → dist 업로드 → Pages 배포를 진행합니다. 저장소 경로는 Pages 메타데이터에 맞춰 설정합니다. 지도 Secret/Variable 등록 후 실제 공개 배포와 접속을 확인했습니다. [배포 안내](docs/GITHUB_PAGES_SETUP.md)를 참고하세요. localStorage 여행 데이터는 서버로 자동 업로드되지 않습니다.
 
 ## 다음 단계
-장소 보관함, 준비물, Firebase 2인 실시간 공동 편집, PWA는 아직 구현하지 않았습니다. Codex 작업 시작 시 `AGENTS.md`와 `docs/PRODUCT_SPEC.md`를 반드시 읽으세요.
+장소 보관함·준비물·Pages 배포를 구현했습니다. Firebase 2인 실시간 공동 편집과 PWA가 남아 있습니다. Codex 작업 시작 시 `AGENTS.md`와 `docs/PRODUCT_SPEC.md`를 반드시 읽으세요.

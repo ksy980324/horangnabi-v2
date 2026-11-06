@@ -3,7 +3,7 @@ import type { Trip, TripDestination } from '../types';
 import { datesBetween, uid } from '../data';
 import { Modal } from './Modal';
 import { DestinationPicker } from './DestinationPicker';
-export function TripForm({ trip, onSave, onClose }: { trip?: Trip; onSave: (trip: Trip) => void; onClose: () => void }) {
+export function TripForm({ trip, onSave, onClose, busy, status }: { trip?: Trip; busy?: boolean; status?: string; onSave: (trip: Trip) => void; onClose: () => void }) {
   const [name, setName] = useState(trip?.name ?? ''), [region, setRegion] = useState(trip?.region ?? '');
   const [today] = useState(() => new Date().toLocaleDateString('sv-SE'));
   const [start, setStart] = useState(trip?.start ?? today), [end, setEnd] = useState(trip?.end ?? today);
@@ -18,5 +18,5 @@ export function TripForm({ trip, onSave, onClose }: { trip?: Trip; onSave: (trip
     if (trip?.stops.some(s => s.date < start || s.date > end)) return setError('기존 일정이 있는 날짜를 여행 기간에서 제외할 수 없어요. 먼저 해당 일정을 수정해 주세요.');
     onSave({ ...trip, id: trip?.id ?? uid(), name: name.trim(), region: region.trim(), destination, start, end, stops: trip?.stops ?? [] });
   }
-  return <Modal title={trip ? '여행 수정' : '새로운 여행'} onClose={onClose}><form onSubmit={submit} className="form"><p className="muted">함께 떠날 다음 여행을 기록해 보세요.</p><label>여행 이름<input autoFocus required maxLength={100} value={name} onChange={e => setName(e.target.value)} placeholder="우리 둘, 어디로 떠날까요?" pattern=".*\S.*"/></label><DestinationPicker value={region} destination={destination} onChange={(value, location) => { setRegion(value); setDestination(location); }} onResolving={setResolving}/><div className="form-row"><label>시작일<input required type="date" value={start} onChange={e => { setStart(e.target.value); if (e.target.value > end) setEnd(e.target.value); }}/></label><label>종료일<input required type="date" min={start} value={end} onChange={e => setEnd(e.target.value)}/></label></div>{error && <p role="alert" className="error">{error}</p>}<button className="primary" type="submit" disabled={resolving}>{trip ? '변경 저장' : '여행 만들기'}</button></form></Modal>;
+  return <Modal title={trip ? '여행 수정' : '새로운 여행'} onClose={onClose} busy={busy} status={status}><form onSubmit={submit} className="form"><p className="muted">함께 떠날 다음 여행을 기록해 보세요.</p><label>여행 이름<input autoFocus required maxLength={100} value={name} onChange={e => setName(e.target.value)} placeholder="우리 둘, 어디로 떠날까요?" pattern=".*\S.*"/></label><DestinationPicker value={region} destination={destination} onChange={(value, location) => { setRegion(value); setDestination(location); }} onResolving={setResolving}/><div className="form-row"><label>시작일<input required type="date" value={start} onChange={e => { setStart(e.target.value); if (e.target.value > end) setEnd(e.target.value); }}/></label><label>종료일<input required type="date" min={start} value={end} onChange={e => setEnd(e.target.value)}/></label></div>{error && <p role="alert" className="error">{error}</p>}<button className="primary" type="submit" disabled={resolving}>{trip ? '변경 저장' : '여행 만들기'}</button></form></Modal>;
 }

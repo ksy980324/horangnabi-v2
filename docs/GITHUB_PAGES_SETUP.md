@@ -2,9 +2,11 @@
 
 ## 현재 상태와 공개 범위
 
-공개 저장소 [ksy980324/horangnabi-v2](https://github.com/ksy980324/horangnabi-v2)를 생성하고 Pages의 Source를 GitHub Actions로 지정했습니다. 로컬 v2 폴더에도 Git을 초기화하고 원격 origin/main을 연결해 소스를 커밋했습니다. **아래 최초 생성 절차를 다시 실행하지 마세요.** 현재 남은 단계는 지도 값 등록과 로컬 커밋 push입니다. 연결 GitHub 앱의 쓰기는 403으로 거절됐고 도구 실행 환경에서 Windows Git 인증 프로그램도 실행되지 않아 원격 소스 업로드는 아직 완료되지 않았습니다. 상세 상태는 [진행 상황](PROGRESS.md)을 확인하세요.
+**공개 배포를 완료했습니다: [호랑나비 열기](https://ksy980324.github.io/horangnabi-v2/)**
 
-현재 상태에서 이어가기:
+공개 저장소 [ksy980324/horangnabi-v2](https://github.com/ksy980324/horangnabi-v2)의 GitHub Actions에서 타입 검사·테스트 39개·빌드·배포가 통과했습니다. 지도 Secret/Variable 등록 후 재실행했고 실제 사이트에서 Google 지도·날짜 변경·장소 검색을 확인했습니다. **아래 최초 생성 절차를 다시 실행하지 마세요.** 상세 검증 범위는 [진행 상황](PROGRESS.md)을 확인하세요.
+
+향후 소스 변경을 업로드할 때의 명령(현재 지도 설정을 위해 다시 push할 필요는 없음):
 
 ```powershell
 cd C:\Users\ct06\vscode-repos\horangnabi\horangnabi-v2
@@ -87,7 +89,7 @@ git push -u origin main
 
 저장소 **Actions → Deploy Horangnabi to GitHub Pages**에서 진행 상태를 확인하세요. 설치 → 타입 검사 → 테스트 → Pages 설정 확인 → 지도 값 확인 → 빌드 → dist 업로드 → 공개 순서입니다. 실패하면 마지막 정상 배포는 유지되고 실패 단계의 로그에서 원인을 확인할 수 있습니다. 성공한 실행의 `deploy` 결과에 실제 사이트 주소가 표시됩니다.
 
-이 계정과 저장소 이름을 사용한다면 예정 주소는 **`https://ksy980324.github.io/horangnabi-v2/`**입니다. **현재 살아 있는 배포 주소라고 확인한 것은 아닙니다.** 주소 끝 `/`까지 포함해 여세요. 이제 PC가 꺼져 있거나 휴대폰이 모바일 데이터를 써도 이 HTTPS 주소로 접속할 수 있습니다.
+현재 배포 주소는 **`https://ksy980324.github.io/horangnabi-v2/`**이며 실제 접속을 확인했습니다. 주소 끝 `/`까지 포함해 여세요. PC가 꺼져 있거나 휴대폰이 모바일 데이터를 써도 이 HTTPS 주소로 접속할 수 있습니다. 실제 휴대폰의 통신망/터치 동작은 본인 기기에서도 확인하세요.
 
 이후 코드 변경은 해당 파일을 커밋하고 `git push`하면 자동 배포됩니다. 지도 Secret/Variable만 바꿨을 때는 Actions에서 **Run workflow → main**으로 새 빌드를 실행하세요. 작업 흐름은 `main` 배포만 허용하며 Pages 설정에서 `github-pages` environment의 배포 브랜치도 `main`으로 제한할 수 있습니다.
 

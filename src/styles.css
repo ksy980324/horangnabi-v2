@@ -90,3 +90,28 @@
 .saved-place-move{display:flex;gap:10px;align-items:end;margin-top:14px}.saved-place-move label{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;font-size:11px}.saved-place-move button{flex-shrink:0;font-size:12px}
 @media(max-width:500px){.trip-view-tabs{margin-bottom:16px}.saved-place-move{flex-wrap:wrap}.saved-place-move select{font-size:16px}.saved-place-move button{min-height:44px}.saved-places .stop-actions button{min-height:36px}}
 @media(max-width:500px){.butterfly-mark{width:36px;height:36px}.intro-stamp .tiger-mascot{width:45px;height:45px}.intro-stamp{top:100px}}
+.shared-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1080px;
+  padding: 16px 20px;
+  margin: 0 auto;
+}
+
+.shared-panel {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+  padding-top: 24px;
+}
+
+.shared-panel code { overflow-wrap: anywhere; }
+
+.modal-status {
+  margin: 12px 20px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff3de;
+  font-size: 13px;
+}

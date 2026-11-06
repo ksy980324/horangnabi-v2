@@ -8,7 +8,7 @@ import { resolveSearchQuery } from '../services/searchQuery';
 import { TravelMap } from './TravelMap';
 import { Modal } from './Modal';
 
-type Props = { date: string; dates: string[]; region: string; searchCenter?: GeoPoint; onClose: () => void } & (
+type Props = { date: string; dates: string[]; region: string; searchCenter?: GeoPoint; onClose: () => void; busy?: boolean; status?: string } & (
   { mode?: 'schedule'; stop?: Stop; onSave: (stop: Stop) => void } |
   { mode: 'saved'; savedPlace?: SavedPlace; onSave: (place: SavedPlace) => void }
 );
@@ -48,7 +48,7 @@ export function StopForm(props: Props) {
     if (props.mode === 'saved') props.onSave(next);
     else props.onSave({ ...next, date: day, time });
   }
-  return <Modal title={savedMode ? (stop ? '후보 장소 수정' : '후보 장소 추가') : (stop ? '일정 수정' : '새 일정 추가')} onClose={onClose}>
+  return <Modal title={savedMode ? (stop ? '후보 장소 수정' : '후보 장소 추가') : (stop ? '일정 수정' : '새 일정 추가')} onClose={onClose} busy={props.busy} status={props.status}>
     <div className="stop-editor">
       <form onSubmit={search} className="place-search">
         <div className="search-form"><input aria-label="장소 검색" disabled={busy} value={query} onChange={e => { setQuery(e.target.value); resetResults(); }} placeholder="장소·지점명 (예: 오사카 공항)" maxLength={200}/><button className="primary" disabled={busy || query.trim().length < 2 || (scope === 'map' && !view)}><Search size={18}/>{busy ? '검색 중' : '검색'}</button></div>
@@ -80,7 +80,7 @@ export function StopForm(props: Props) {
         {!savedMode && <div className="form-row"><label>날짜<select value={day} onChange={e => setDay(e.target.value)}>{dates.map((d, i) => <option key={d} value={d}>{i + 1}일차 · {d.slice(5)}</option>)}</select></label><label>시간 (선택)<input type="time" value={time} onChange={e => setTime(e.target.value)}/></label></div>}
         <div className="form-row"><label>카테고리<select value={category} onChange={e => setCategory(e.target.value as Stop['category'])}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>{!savedMode && <button type="button" className="secondary align-end" onClick={() => setTime('')}>시간 미정으로</button>}</div>
         <label>메모<textarea rows={3} maxLength={3000} value={memo} onChange={e => setMemo(e.target.value)} placeholder="함께 기억하고 싶은 것들을 적어 보세요."/></label>
-        <button className="primary" type="submit">{stop ? '변경 저장' : savedMode ? '보관함에 저장' : '일정에 추가'}</button>
+        <button className="primary" type="submit" disabled={props.busy}>{stop ? '변경 저장' : savedMode ? '보관함에 저장' : '일정에 추가'}</button>
       </form>
     </div>
   </Modal>;
