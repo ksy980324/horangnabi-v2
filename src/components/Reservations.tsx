@@ -4,19 +4,22 @@ import { uid } from '../data';
 import { isReservation, isReservationUrl, reservationLimits } from '../services/reservations';
 import { flightDate, flightNumber, type FlightLookupErrorReason, type FlightSchedule } from '../services/flightLookup';
 import { mapsLinkResolverUrl } from '../services/resolveGoogleMapsLink';
-import type { FlightDirection, Reservation } from '../types';
+import type { FlightDirection, Reservation, Stop } from '../types';
 import { Modal } from './Modal';
 
 function displayDateTime(value: string) {
   return value.replace('T', ' ').replaceAll('-', '.');
 }
 
-export function Reservations({ items, onAdd, onEdit, onDelete }: {
-  items: Reservation[]; onAdd: () => void; onEdit: (id: string) => void; onDelete: (id: string) => void;
+export function Reservations({ items, stops, onAdd, onEdit, onDelete, onOpenStop }: {
+  items: Reservation[]; stops: Stop[]; onAdd: () => void; onEdit: (id: string) => void; onDelete: (id: string) => void; onOpenStop: (stop: Stop) => void;
 }) {
+  const linkedStops = new Map(stops.filter(stop => stop.flightReservationId).map(stop => [stop.flightReservationId, stop]));
   return <section className="reservations" aria-label="예약 정보">
     <div className="reservations-heading"><h2>예약 정보</h2><button className="primary" onClick={onAdd}><Plus size={17}/>예약 추가</button></div>
-    {items.length ? <ul className="reservation-list">{items.map(item => <li className="reservation-card" key={item.id}>
+    {items.length ? <ul className="reservation-list">{items.map(item => {
+      const stop = item.kind === 'flight' ? linkedStops.get(item.id) : undefined;
+      return <li className="reservation-card" key={item.id}>
       <div className="reservation-card-title">
         <span className="reservation-kind">{item.kind === 'flight' ? <><Plane size={15}/>{item.direction === 'outbound' ? '출국편' : item.direction === 'return' ? '복귀편' : '항공편'}</> : <><BedDouble size={15}/>숙소</>}</span>
         <h3>{item.name}</h3>
@@ -35,12 +38,16 @@ export function Reservations({ items, onAdd, onEdit, onDelete }: {
         </>}
         {item.reference && <div><dt>예약번호</dt><dd>{item.reference}</dd></div>}
       </dl>
+      {item.kind === 'flight' && <p className="reservation-itinerary-status">{stop
+        ? `${displayDateTime(`${stop.date}T${stop.time}`)} · ${stop.name} 일정에 연결됨`
+        : '연결된 공항 일정이 없어요. 예약에서 여행 방향과 공항, 여행 기간 안의 날짜·시간을 확인해 주세요.'}</p>}
       <div className="reservation-actions">
+        {stop && <button className="secondary" onClick={() => onOpenStop(stop)}>일정에서 보기</button>}
         {isReservationUrl(item.url) && <a className="secondary reservation-link" href={item.url} target="_blank" rel="noopener noreferrer">예약 확인<ExternalLink size={14} aria-hidden="true"/></a>}
         <button className="text-button" onClick={() => onEdit(item.id)}><Pencil size={14}/>수정</button>
         <button className="text-button danger" onClick={() => { if (confirm(`‘${item.name}’ 예약 정보를 삭제할까요?`)) onDelete(item.id); }}><Trash2 size={14}/>삭제</button>
       </div>
-    </li>)}</ul> : <div className="empty"><Ticket size={30} aria-hidden="true"/><h3>아직 저장한 예약이 없어요</h3><p>항공편이나 숙소 정보를 추가해 보세요.</p></div>}
+    </li>; })}</ul> : <div className="empty"><Ticket size={30} aria-hidden="true"/><h3>아직 저장한 예약이 없어요</h3><p>항공편이나 숙소 정보를 추가해 보세요.</p></div>}
   </section>;
 }
 

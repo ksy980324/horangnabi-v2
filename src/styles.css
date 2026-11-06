@@ -249,6 +249,7 @@
 .reservation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
 .reservation-actions > * { min-height: 44px; }
 .reservation-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.reservation-itinerary-status { margin-top: 12px; color: #526970; font-size: 12px; line-height: 1.5; }
 .flight-lookup { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: #f3faf7; }
 .flight-lookup input { min-width: 0; }
 .flight-lookup button { min-height: 40px; }
