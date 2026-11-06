@@ -19,6 +19,10 @@ export function Reservations({ items, stops, onAdd, onEdit, onDelete, onOpenStop
     <div className="reservations-heading"><h2>예약 정보</h2><button className="primary" onClick={onAdd}><Plus size={17}/>예약 추가</button></div>
     {items.length ? <ul className="reservation-list">{items.map(item => {
       const stop = item.kind === 'flight' ? linkedStops.get(item.id) : undefined;
+      const stayStops = item.kind === 'stay' ? stops.filter(stop => stop.stayReservation?.id === item.id) : [];
+      const checkInStop = stayStops.find(stop => stop.stayReservation?.event === 'checkIn');
+      const checkOutStop = stayStops.find(stop => stop.stayReservation?.event === 'checkOut');
+      const morningStop = !checkInStop && !checkOutStop ? stayStops[0] : undefined;
       return <li className="reservation-card" key={item.id}>
       <div className="reservation-card-title">
         <span className="reservation-kind">{item.kind === 'flight' ? <><Plane size={15}/>{item.direction === 'outbound' ? '출국편' : item.direction === 'return' ? '복귀편' : '항공편'}</> : <><BedDouble size={15}/>숙소</>}</span>
@@ -42,6 +46,9 @@ export function Reservations({ items, stops, onAdd, onEdit, onDelete, onOpenStop
         ? `${displayDateTime(`${stop.date}T${stop.time}`)} · ${stop.name} 일정에 연결됨`
         : '연결된 공항 일정이 없어요. 예약에서 여행 방향과 공항, 여행 기간 안의 날짜·시간을 확인해 주세요.'}</p>}
       <div className="reservation-actions">
+        {checkInStop && <button className="secondary" onClick={() => onOpenStop(checkInStop)}>체크인 일정 보기</button>}
+        {checkOutStop && <button className="secondary" onClick={() => onOpenStop(checkOutStop)}>체크아웃 일정 보기</button>}
+        {morningStop && <button className="secondary" onClick={() => onOpenStop(morningStop)}>숙소 일정 보기</button>}
         {stop && <button className="secondary" onClick={() => onOpenStop(stop)}>일정에서 보기</button>}
         {isReservationUrl(item.url) && <a className="secondary reservation-link" href={item.url} target="_blank" rel="noopener noreferrer">예약 확인<ExternalLink size={14} aria-hidden="true"/></a>}
         <button className="text-button" onClick={() => onEdit(item.id)}><Pencil size={14}/>수정</button>
@@ -161,6 +168,7 @@ export function ReservationForm({ item, startDate, endDate, onClose, onSave, bus
         <label>체크인 날짜와 시간 (선택)<input type="datetime-local" value={checkIn} onChange={event => setCheckIn(event.target.value)}/></label>
         <label>체크아웃 날짜와 시간 (선택)<input type="datetime-local" min={checkIn || undefined} value={checkOut} onChange={event => setCheckOut(event.target.value)}/></label>
         <label>숙소 주소 (선택)<input value={address} maxLength={reservationLimits.address} onChange={event => setAddress(event.target.value)}/></label>
+        <p className="muted">여행 기간 안의 체크인·체크아웃이 일정에 추가돼요. 연박 중에는 매일 첫 일정이 숙소 출발이에요.</p>
       </>}
       <p className="muted">예약 안내에 적힌 현지 날짜와 시간을 입력하세요.</p>
       <label>예약번호 (선택)<input value={reference} maxLength={reservationLimits.reference} onChange={event => setReference(event.target.value)}/></label>

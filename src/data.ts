@@ -71,6 +71,7 @@ export function parseDatabase(value: unknown): Database {
       if (s.mapUrl !== undefined && !isGoogleMapsLink(s.mapUrl)) return fail();
       if (s.photoUrl !== undefined && !isPhotoUrl(s.photoUrl)) return fail();
       if (s.flightReservationId !== undefined && (typeof s.flightReservationId !== 'string' || !s.flightReservationId.trim())) return fail();
+      if (s.stayReservation !== undefined && (!s.stayReservation || typeof s.stayReservation.id !== 'string' || !s.stayReservation.id.trim() || !['checkIn', 'start', 'checkOut'].includes(s.stayReservation.event))) return fail();
       if ((s.lat === undefined) !== (s.lng === undefined)) return fail();
       if (s.lat !== undefined && (!Number.isFinite(s.lat) || Math.abs(s.lat) > 90 || !Number.isFinite(s.lng) || Math.abs(s.lng!) > 180)) return fail();
       ids.add(s.id);

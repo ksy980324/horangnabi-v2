@@ -11,10 +11,44 @@ test('flight and stay reservations round-trip through backups and preserve itine
   const stay: Reservation = { id: 'stay', kind: 'stay', name: '카스이테이', checkIn: '2026-11-21T15:00', checkOut: '2026-11-22T10:00', url: 'https://example.com/booking' };
   const next = saveReservation(saveReservation(trip, flight), stay);
   const updated = saveReservation(next, { ...flight, reference: 'ABC123' });
-  assert.equal(updated.stops, trip.stops);
+  assert.deepEqual(updated.stops.filter(stop => !stop.stayReservation), trip.stops);
   assert.equal(trip.reservations, undefined);
   assert.equal(updated.reservations?.length, 2);
   assert.deepEqual(parseDatabase(JSON.parse(JSON.stringify({ ...db, trips: [updated] }))).trips[0].reservations, updated.reservations);
+  assert.deepEqual(parseDatabase(JSON.parse(JSON.stringify({ ...db, trips: [updated] }))).trips[0].stops, JSON.parse(JSON.stringify(updated.stops)));
+});
+
+test('stay creates timed check-in and checkout plus a first stop each morning', () => {
+  const trip = sampleDatabase().trips[0];
+  const stay: Reservation = {
+    kind: 'stay', id: 'hotel', name: 'Hotel', address: 'Hotel address',
+    checkIn: '2026-11-21T15:00', checkOut: '2026-11-23T10:00',
+  };
+  const saved = saveReservation(trip, stay);
+  const day = (date: string) => saved.stops.filter(stop => stop.date === date);
+  assert.equal(day('2026-11-21')[2].time, '15:00');
+  assert.equal(day('2026-11-21')[2].name, 'Hotel 체크인');
+  assert.equal(day('2026-11-22')[0].name, 'Hotel 출발');
+  assert.equal(day('2026-11-22')[0].time, '');
+  assert.equal(day('2026-11-23')[0].name, 'Hotel 체크아웃');
+  assert.equal(day('2026-11-23')[0].time, '10:00');
+  assert.equal(day('2026-11-23').filter(stop => stop.stayReservation).length, 1);
+  assert.deepEqual(saveReservation(saved, stay), saved);
+
+  const updated = saveReservation(saved, { ...stay, checkOut: '2026-11-22T09:30' });
+  assert.deepEqual(updated.stops.filter(stop => stop.stayReservation).map(stop => [stop.date, stop.time]), [
+    ['2026-11-21', '15:00'], ['2026-11-22', '09:30'],
+  ]);
+  assert.deepEqual(removeReservation(updated, stay.id).stops, trip.stops);
+});
+
+test('stay skips dates outside the trip and supports a checkout on the check-in date', () => {
+  const trip = sampleDatabase().trips[0];
+  const stay: Reservation = { kind: 'stay', id: 'hotel', name: 'Hotel', checkIn: '2026-11-20T15:00', checkOut: '2026-11-22T10:00' };
+  const clipped = saveReservation(trip, stay);
+  assert.deepEqual(clipped.stops.filter(stop => stop.stayReservation).map(stop => stop.stayReservation?.event), ['start', 'checkOut']);
+  const sameDay = saveReservation(clipped, { ...stay, checkIn: '2026-11-22T08:00' });
+  assert.deepEqual(sameDay.stops.filter(stop => stop.date === '2026-11-22').map(stop => stop.time), ['08:00', '10:00', '17:00']);
 });
 
 test('reservation backups reject duplicate IDs, invalid dates, and unsafe links', () => {

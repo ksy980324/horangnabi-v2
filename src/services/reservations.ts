@@ -1,5 +1,6 @@
-import type { Reservation, Stop, Trip } from '../types';
+import type { Reservation, StayEvent, Stop, Trip } from '../types';
 import { airportCoordinates } from './airportCoordinates.ts';
+import { hasCoordinates } from './geo.ts';
 
 export const reservationLimits = { name: 150, reference: 100, url: 2048, address: 500, airport: 150 };
 
@@ -38,13 +39,15 @@ export function isReservation(value: unknown): value is Reservation {
 export function saveReservation(trip: Trip, reservation: Reservation): Trip {
   const reservations = trip.reservations ?? [];
   const previous = reservations.find(item => item.id === reservation.id);
-  return { ...trip, stops: syncFlightStop(trip, reservation, previous), reservations: previous
+  const base = previous && previous.kind !== reservation.kind ? removeReservation(trip, reservation.id) : trip;
+  const stops = reservation.kind === 'stay' ? syncStayStops(base, reservation, previous) : syncFlightStop(base, reservation, previous);
+  return { ...trip, stops, reservations: previous
     ? reservations.map(item => item.id === reservation.id ? reservation : item)
     : [...reservations, reservation] };
 }
 
 export function removeReservation(trip: Trip, id: string): Trip {
-  return { ...trip, reservations: (trip.reservations ?? []).filter(item => item.id !== id), stops: trip.stops.filter(stop => stop.flightReservationId !== id) };
+  return { ...trip, reservations: (trip.reservations ?? []).filter(item => item.id !== id), stops: trip.stops.filter(stop => stop.flightReservationId !== id && stop.stayReservation?.id !== id) };
 }
 
 function flightEvent(reservation: Reservation | undefined) {
@@ -61,9 +64,7 @@ function syncFlightStop(trip: Trip, reservation: Reservation, previous?: Reserva
   if (!event || event.date < trip.start || event.date > trip.end) {
     return linked ? trip.stops.filter(stop => stop.flightReservationId !== reservation.id) : trip.stops;
   }
-  const prefix = `flight:${reservation.id}`;
-  let id = linked?.id ?? prefix;
-  if (!linked) for (let suffix = 1; trip.stops.some(stop => stop.id === id) || trip.savedPlaces?.some(place => place.id === id); suffix++) id = `${prefix}:${suffix}`;
+  const id = linked?.id ?? reservationStopId(trip, `flight:${reservation.id}`);
   const sameAirport = linked && flightEvent(previous)?.airport === event.airport;
   const position = sameAirport && linked.lat !== undefined && linked.lng !== undefined ? { lat: linked.lat, lng: linked.lng } : airportCoordinates(event.airport);
   const stop: Stop = {
@@ -76,5 +77,51 @@ function syncFlightStop(trip: Trip, reservation: Reservation, previous?: Reserva
   const later = stops.findIndex(item => item.date === stop.date && (item.time ? item.time >= stop.time : event.outbound));
   if (later >= 0) stops.splice(later, 0, stop);
   else stops.push(stop);
+  return stops;
+}
+
+function reservationStopId(trip: Trip, prefix: string) {
+  let id = prefix;
+  for (let suffix = 1; trip.stops.some(stop => stop.id === id) || trip.savedPlaces?.some(place => place.id === id); suffix++) id = `${prefix}:${suffix}`;
+  return id;
+}
+
+type StayReservation = Extract<Reservation, { kind: 'stay' }>;
+
+function syncStayStops(trip: Trip, reservation: StayReservation, previous?: Reservation): Stop[] {
+  const checkIn = reservation.checkIn?.slice(0, 10);
+  const checkOut = reservation.checkOut?.slice(0, 10);
+  const linked = trip.stops.filter(stop => stop.stayReservation?.id === reservation.id);
+  if (!checkIn && !checkOut && !linked.length) return trip.stops;
+  const stops = trip.stops.filter(stop => stop.stayReservation?.id !== reservation.id);
+  const sameStay = previous?.kind === 'stay' && previous.name === reservation.name && previous.address === reservation.address;
+  const pinned = (sameStay ? linked.find(hasCoordinates) : undefined) ?? [...stops, ...(trip.savedPlaces ?? [])].find(stop => stop.name.trim() === reservation.name
+    && (!reservation.address || stop.address.trim() === reservation.address) && hasCoordinates(stop));
+
+  function add(event: StayEvent, date: string, time: string, first: boolean) {
+    if (date < trip.start || date > trip.end) return;
+    const old = linked.find(stop => stop.stayReservation?.event === event && (event !== 'start' || stop.date === date));
+    const position = sameStay && old && hasCoordinates(old) ? old : pinned;
+    const label = { checkIn: '체크인', start: '출발', checkOut: '체크아웃' }[event];
+    const stop: Stop = {
+      id: old?.id ?? reservationStopId(trip, `stay:${reservation.id}:${event}${event === 'start' ? `:${date}` : ''}`),
+      name: `${reservation.name.slice(0, 145)} ${label}`, address: reservation.address ?? (sameStay ? old?.address : undefined) ?? '',
+      date, time, category: '숙소', memo: old?.memo ?? '', stayReservation: { id: reservation.id, event },
+      lat: position?.lat, lng: position?.lng,
+      mapUrl: sameStay ? old?.mapUrl : undefined, photoUrl: sameStay ? old?.photoUrl : undefined,
+    };
+    const before = stops.findIndex(item => item.date === date && (first || !!item.time && item.time > time));
+    if (before >= 0) stops.splice(before, 0, stop);
+    else stops.push(stop);
+  }
+
+  if (checkIn && reservation.checkIn) add('checkIn', checkIn, reservation.checkIn.slice(11), false);
+  if (checkIn && checkOut) {
+    const dayMs = 86_400_000;
+    const firstMorning = Math.max(Date.parse(checkIn) + dayMs, Date.parse(trip.start));
+    const lastMorning = Math.min(Date.parse(checkOut) - dayMs, Date.parse(trip.end));
+    for (let day = firstMorning; day <= lastMorning; day += dayMs) add('start', new Date(day).toISOString().slice(0, 10), '', true);
+  }
+  if (checkOut && reservation.checkOut) add('checkOut', checkOut, reservation.checkOut.slice(11), checkOut !== checkIn);
   return stops;
 }
