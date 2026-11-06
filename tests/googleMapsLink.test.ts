@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseDatabase, sampleDatabase } from '../src/data';
-import { isGoogleMapsLink, parseGoogleMapsShare } from '../src/services/googleMapsLink';
+import { googleMapsDirections, isGoogleMapsLink, parseGoogleMapsShare } from '../src/services/googleMapsLink';
+
+test('directions pass the saved destination and let Google Maps choose the origin', () => {
+  const place = { name: '우동 마르코', address: '鳥取県米子市日野町55' };
+  const url = new URL(googleMapsDirections({ ...place, lat: 35.4263429, lng: 133.3340368 })!);
+  assert.equal(url.pathname, '/maps/dir/');
+  assert.equal(url.searchParams.get('api'), '1');
+  assert.equal(url.searchParams.get('destination'), '35.4263429,133.3340368');
+  assert.equal(url.searchParams.has('origin'), false);
+  assert.equal(new URL(googleMapsDirections(place)!).searchParams.get('destination'), '우동 마르코 鳥取県米子市日野町55');
+  assert.equal(googleMapsDirections({ ...place, address: ' ' }), undefined);
+});
 
 test('map share text and place URLs supply a name without treating the map camera as a pin', () => {
   const short = 'https://maps.app.goo.gl/abc';

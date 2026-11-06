@@ -1,6 +1,14 @@
-import { parseCoordinates } from './geo.ts';
+import { hasCoordinates, parseCoordinates } from './geo.ts';
+import type { Place } from '../types';
 
 export const MAX_MAP_LINK_LENGTH = 2048;
+
+export function googleMapsDirections(place: Pick<Place, 'name' | 'address' | 'lat' | 'lng'>) {
+  const address = place.address.trim();
+  const destination = hasCoordinates(place) ? `${place.lat},${place.lng}` : address && `${place.name.trim()} ${address}`.trim();
+  if (!destination) return;
+  return `https://www.google.com/maps/dir/?${new URLSearchParams({ api: '1', destination })}`;
+}
 
 export function isGoogleMapsLink(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > MAX_MAP_LINK_LENGTH) return false;
