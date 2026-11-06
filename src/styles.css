@@ -169,3 +169,40 @@
 .stop-directions a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
 .packing-shared-hint { margin: -10px 0 14px; color: #526970; font-size: 12px; }
 .packing-item-status { display: block; margin-top: 4px; color: #526970; font-size: 10px; font-weight: 400; }
+
+.map-title > .map-size-toggle { display: none; }
+.schedule .stop-order { position: relative; }
+.schedule .stop-order .stop-photo-frame { flex: 0 0 auto; width: 44px; }
+.schedule .stop-order .stop-photo { height: 44px; }
+.schedule .stop-content { min-height: 96px; }
+.schedule .stop-card.selected .stop-content { background: #f3faf7; }
+.date-tabs button { min-height: 48px; }
+.date-tabs button[aria-current="date"] { flex-basis: 84px; }
+.date-tabs small { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.today-tab-badge { padding: 1px 4px; border-radius: 4px; background: #e2f1ea; color: #17695f; font-size: 9px; font-weight: 700; }
+.date-tabs .active .today-tab-badge { background: #fff; color: #17695f; }
+
+@media (max-width: 800px) {
+  .planner { overflow-anchor: none; }
+  .planner > .map-section .map-wrap { height: clamp(200px, 36svh, 320px); }
+  .planner > .map-section-compact .map-wrap { height: clamp(108px, 19svh, 160px); }
+  .planner > .map-section-compact .map-bottom { display: none; }
+  .planner > .map-section .map-title { height: 44px; gap: 8px; }
+  .map-title > .map-size-toggle { display: inline-flex; align-items: center; min-height: 44px; }
+  .map-title > .map-size-toggle + .text-button { margin-left: 0; min-height: 44px; }
+  .schedule .stop-card { gap: 8px; padding-bottom: 12px; }
+  .schedule .stop-order { flex-basis: 44px; }
+  .schedule .stop-order .stop-number { margin-top: 12px; }
+  .schedule .stop-order .stop-photo-frame { width: 38px; }
+  .schedule .stop-order .stop-photo { height: 38px; }
+  .schedule .stop-content { padding: 12px 44px 12px 12px; }
+  .schedule .stop-label h3 { line-height: 1.4; overflow-wrap: anywhere; }
+  .schedule .stop-label > p { font-size: 11px; }
+  .schedule .reorder { top: 4px; right: 3px; }
+  .schedule .reorder .icon-button { min-width: 36px; min-height: 42px; }
+}
+
+@media (max-width: 800px) and (max-height: 500px) {
+  .planner > .map-section .map-wrap { height: 155px; }
+  .planner > .map-section-compact .map-wrap { height: 96px; }
+}

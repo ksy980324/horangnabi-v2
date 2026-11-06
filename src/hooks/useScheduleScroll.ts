@@ -51,7 +51,7 @@ export function useScheduleScroll(scope: string, stops: ScrollStop[], mapRef: Re
       if (element) element.parentElement?.style.setProperty('--schedule-map-height', `${element.getBoundingClientRect().height}px`);
     };
     const onResize = () => { measureMap(); schedule(); };
-    const observer = new ResizeObserver(measureMap);
+    const observer = new ResizeObserver(onResize);
     if (mapRef.current) observer.observe(mapRef.current);
     measureMap();
     window.addEventListener('scroll', schedule, { passive: true });
