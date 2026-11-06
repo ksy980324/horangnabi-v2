@@ -41,5 +41,14 @@ test('the worker reports a gateway authentication error without exposing the ups
   const request = new Request('https://example.workers.dev/flight?number=RS471&date=2026-11-21', { headers: { Origin: 'https://ksy980324.github.io' } });
   const response = await worker.fetch(request, { INCHEON_FLIGHT_SERVICE_KEY: 'mock' });
   assert.equal(response.status, 502);
-  assert.deepEqual(await response.json(), { reason: 'authorization', providerCode: '20' });
+  assert.deepEqual(await response.json(), { reason: 'authorization', providerCode: '20', providerStatus: 401 });
+});
+
+test('the worker distinguishes a network failure from an upstream HTTP error', async context => {
+  const request = new Request('https://example.workers.dev/flight?number=RS471&date=2026-11-16', { headers: { Origin: 'https://ksy980324.github.io' } });
+  const env = { INCHEON_FLIGHT_SERVICE_KEY: 'mock' };
+  const fetch = context.mock.method(globalThis, 'fetch', async () => { throw new TypeError('transport error'); });
+  assert.deepEqual(await (await worker.fetch(request, env)).json(), { reason: 'network' });
+  fetch.mock.mockImplementation(async () => new Response('Bad gateway', { status: 503 }));
+  assert.deepEqual(await (await worker.fetch(request, env)).json(), { reason: 'upstream', providerStatus: 503 });
 });

@@ -11,7 +11,7 @@ type ScheduleResponse = {
 };
 
 export class IncheonLookupError extends Error {
-  constructor(readonly reason: FlightLookupErrorReason, readonly providerCode?: string) { super(reason); }
+  constructor(readonly reason: FlightLookupErrorReason, readonly providerCode?: string, readonly providerStatus?: number) { super(reason); }
 }
 
 async function readScheduleResponse(upstream: Response): Promise<ScheduleResponse> {
@@ -23,9 +23,9 @@ async function readScheduleResponse(upstream: Response): Promise<ScheduleRespons
     ?? body.match(/<(?:returnReasonCode|resultCode)>\s*(\d{1,2})\s*<\//)?.[1] ?? '');
   if (/^0?3$/.test(code)) return { response: { header: { resultCode: '03' } } };
   const providerCode = /^\d{1,2}$/.test(code) ? code : undefined;
-  if (code === '22' || upstream.status === 429) throw new IncheonLookupError('quota', providerCode);
-  if (['20', '30', '31', '32'].includes(code) || upstream.status === 401 || upstream.status === 403) throw new IncheonLookupError('authorization', providerCode);
-  if (!upstream.ok || !payload || !/^0+$/.test(code)) throw new IncheonLookupError('upstream', providerCode);
+  if (code === '22' || upstream.status === 429) throw new IncheonLookupError('quota', providerCode, upstream.status);
+  if (['20', '30', '31', '32'].includes(code) || upstream.status === 401 || upstream.status === 403) throw new IncheonLookupError('authorization', providerCode, upstream.status);
+  if (!upstream.ok || !payload || !/^0+$/.test(code)) throw new IncheonLookupError('upstream', providerCode, upstream.status);
   return payload;
 }
 
@@ -63,11 +63,14 @@ export function lookupIncheonDepartures(number: string, date: string, serviceKey
   const url = new URL(source);
   url.search = new URLSearchParams({ serviceKey, pageNo: '1', numOfRows: '100', type: 'json', flightId: number }).toString();
   const signal = AbortSignal.timeout(10000);
-  const response = fetch(url, { redirect: 'error', signal }).then(async upstream => {
-    return incheonDepartures(await readScheduleResponse(upstream), number, date);
+  const response = fetch(url, { redirect: 'manual', signal }).then(async upstream => {
+    const payload = await readScheduleResponse(upstream);
+    try { return incheonDepartures(payload, number, date); }
+    catch { throw new IncheonLookupError('upstream', undefined, upstream.status); }
   }).catch((error: unknown) => {
     schedules.delete(cacheKey);
-    throw signal.aborted ? new IncheonLookupError('timeout') : error;
+    if (signal.aborted) throw new IncheonLookupError('timeout');
+    throw error instanceof IncheonLookupError ? error : new IncheonLookupError('network');
   });
   if (schedules.size >= 100) schedules.delete(schedules.keys().next().value!);
   schedules.set(cacheKey, { response, expires: Date.now() + 600_000 });

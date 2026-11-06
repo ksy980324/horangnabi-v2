@@ -90,17 +90,19 @@ export function ReservationForm({ item, startDate, onClose, onSave, busy, status
       const endpoint = new URL('/flight', mapsLinkResolverUrl);
       endpoint.search = new URLSearchParams({ number, date: lookupDate }).toString();
       const response = await fetch(endpoint, { signal: controller.signal });
-      const result = await response.json() as { flights?: FlightSchedule[]; reason?: FlightLookupErrorReason; providerCode?: string };
+      const result = await response.json() as { flights?: FlightSchedule[]; reason?: FlightLookupErrorReason; providerCode?: string; providerStatus?: number };
       if (flightRequest.current !== controller) return;
       if (!response.ok) {
         const messages: Record<FlightLookupErrorReason, string> = {
           authorization: '공공데이터포털에서 이 API의 활용 승인이 완료됐는지와 Worker에 등록한 인증키를 확인해 주세요.',
           quota: '인천공항 조회의 일일 한도에 도달했어요. 직접 입력할 수 있어요.',
           timeout: '인천공항에서 응답이 늦어요. 잠시 후 다시 시도하거나 직접 입력해 주세요.',
+          network: '조회 서버가 공공데이터포털에 연결하지 못했어요. 직접 입력할 수 있어요.',
           upstream: '인천공항 조회 서비스에서 정상 응답을 받지 못했어요. 직접 입력할 수 있어요.',
         };
         const message = response.status === 503 ? '인천공항 조회 서비스가 아직 연결되지 않았어요.' : messages[result.reason ?? 'upstream'];
-        throw new Error(`${message}${result.providerCode ? ` (공공데이터 코드 ${result.providerCode})` : ''}`);
+        const detail = result.providerCode ? ` (공공데이터 코드 ${result.providerCode})` : result.providerStatus ? ` (공공데이터 HTTP ${result.providerStatus})` : '';
+        throw new Error(`${message}${detail}`);
       }
       if (!Array.isArray(result.flights)) throw new Error('항공편 조회 응답을 읽지 못했어요.');
       if (result.flights.length === 1) applyFlight(result.flights[0]);

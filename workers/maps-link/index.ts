@@ -20,7 +20,7 @@ export default {
       if (!serviceKey) return reply({}, 503);
       try { return reply({ flights: await lookupIncheonDepartures(number, date, serviceKey) }); }
       catch (error) {
-        if (error instanceof IncheonLookupError) return reply({ reason: error.reason, providerCode: error.providerCode }, 502);
+        if (error instanceof IncheonLookupError) return reply({ reason: error.reason, providerCode: error.providerCode, providerStatus: error.providerStatus }, 502);
         return reply({ reason: 'upstream' }, 502);
       }
     }
