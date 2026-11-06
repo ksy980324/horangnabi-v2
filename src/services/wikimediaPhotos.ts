@@ -35,8 +35,10 @@ function isHostedAt(value: string | undefined, host: string): value is string {
   catch { return false; }
 }
 
-function photoFromFile(info: ImageInfo | undefined): WikimediaPhoto | undefined {
-  if (!info || !isHostedAt(info.thumburl, 'upload.wikimedia.org') || !isHostedAt(info.descriptionurl, 'commons.wikimedia.org')) return;
+export function photoFromFile(info: ImageInfo | undefined): WikimediaPhoto | undefined {
+  if (!info || !isHostedAt(info.descriptionurl, 'commons.wikimedia.org')) return;
+  const { thumburl } = info;
+  if (!isHostedAt(thumburl, 'upload.wikimedia.org') && !isHostedAt(thumburl, 'thumb.wikimedia.org')) return;
   const metadata = info.extmetadata ?? {};
   const license = metadata.LicenseShortName?.value;
   const licenseUrl = metadata.LicenseUrl?.value?.replace(/^http:/, 'https:');
@@ -44,9 +46,10 @@ function photoFromFile(info: ImageInfo | undefined): WikimediaPhoto | undefined 
   const requiresCredit = /^CC BY(?:-SA)? \d(?:\.\d+)?$/i.test(license);
   if (!requiresCredit && !/^(?:CC0|public domain)$/i.test(license)) return;
   const authorMarkup = metadata.Attribution?.value || metadata.Artist?.value || '';
-  const author = new DOMParser().parseFromString(authorMarkup.replace(/<[^>]*>/g, ''), 'text/html').body.textContent?.trim() ?? '';
+  const authorText = authorMarkup.replace(/<[^>]*>/g, '').trim();
+  const author = authorText.includes('&') ? new DOMParser().parseFromString(authorText, 'text/html').body.textContent?.trim() ?? '' : authorText;
   if (requiresCredit && (!author || !isHostedAt(licenseUrl, 'creativecommons.org'))) return;
-  return { url: info.thumburl, source: info.descriptionurl, author, license, licenseUrl: isHostedAt(licenseUrl, 'creativecommons.org') ? licenseUrl : undefined };
+  return { url: thumburl, source: info.descriptionurl, author, license, licenseUrl: isHostedAt(licenseUrl, 'creativecommons.org') ? licenseUrl : undefined };
 }
 
 async function findPhoto(name: string, point: GeoPoint) {
