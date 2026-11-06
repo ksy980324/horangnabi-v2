@@ -116,8 +116,10 @@
   background: #fff;
   box-shadow: 0 8px 24px #2336471a;
 }
-.header-menu-panel button { justify-content: flex-start; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 6px; background: #fff; font-size: 13px; white-space: nowrap; }
-.header-menu-panel button:hover, .header-menu-panel button:focus-visible { background: #edf7f3; }
+.header-menu-panel :is(button, a) { display: flex; align-items: center; justify-content: flex-start; width: 100%; min-height: 44px; padding: 8px 12px; border: 0; border-radius: 6px; background: #fff; color: inherit; font-size: 13px; text-decoration: none; white-space: nowrap; }
+.header-menu-panel :is(button, a):is(:hover, :focus-visible) { background: #edf7f3; }
+.offline-menu p { max-width: 205px; padding: 6px 12px; color: #526970; font-size: 12px; line-height: 1.5; }
+.offline-menu p:empty { padding: 0; }
 
 .shared-panel {
   display: grid;
@@ -306,11 +308,8 @@
 .expense-totals p, .expense-entry p { font-size: 12px; color: #526970; margin-top: 4px; }
 .expense-totals .expense-settlement { font-weight: 700; color: #126a62; }
 .expense-entry { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; }
-.expense-actions, .offline-access > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.expense-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .expense-actions button { min-height: 44px; padding-inline: 8px; }
-.offline-access { margin-top: 28px; }
-.offline-access .secondary { display: inline-flex; align-items: center; text-decoration: none; }
-.offline-access p { margin-top: 8px; font-size: 12px; }
 .reservation-itinerary-status { margin-top: 12px; color: #526970; font-size: 12px; line-height: 1.5; }
 .flight-lookup { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: #f3faf7; }
 .flight-lookup input { min-width: 0; }

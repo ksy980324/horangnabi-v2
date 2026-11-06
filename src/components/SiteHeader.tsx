@@ -1,10 +1,10 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Heart, Menu } from 'lucide-react';
 import { ButterflyMark } from './BrandIcons';
 
 export type HeaderAction = { label: string; onClick: () => void; disabled?: boolean };
 
-export function SiteHeader({ onHome, actions = [] }: { onHome?: () => void; actions?: HeaderAction[] }) {
+export function SiteHeader({ onHome, actions = [], menuContent }: { onHome?: () => void; actions?: HeaderAction[]; menuContent?: ReactNode }) {
   const menu = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -28,11 +28,12 @@ export function SiteHeader({ onHome, actions = [] }: { onHome?: () => void; acti
   return <header className="site-header">
     <div className="header-inner">
       {onHome ? <button className="brand" onClick={onHome}>{brand}</button> : <div className="brand header-brand-label">{brand}</div>}
-      {actions.length ? <div className="header-menu" ref={menu} onKeyDown={event => {
+      {actions.length || menuContent ? <div className="header-menu" ref={menu} onKeyDown={event => {
         if (event.key === 'Escape' && open) { event.preventDefault(); close(true); }
       }}>
         <button type="button" className="header-menu-toggle" aria-label="호랑나비 메뉴" aria-expanded={open} aria-controls={menuId} ref={toggle} onClick={() => setOpen(value => !value)}><Menu size={22} aria-hidden="true"/></button>
         <div className="header-menu-panel" id={menuId} hidden={!open}>
+          {menuContent}
           {actions.map(action => <button type="button" key={action.label} disabled={action.disabled} onClick={() => { close(true); action.onClick(); }}>{action.label}</button>)}
         </div>
       </div> : <span className="header-note"><Heart size={14}/>우리 둘만의 여행 기록</span>}

@@ -3,7 +3,7 @@ import { Download } from 'lucide-react';
 import { offlinePageUrl, readOfflineTrip, saveOfflineTrip } from '../services/offlineTrip';
 import type { Trip } from '../types';
 
-export function OfflineAccess({ trip, owner }: { trip?: Trip; owner?: string }) {
+export function useOfflineMenu(trip?: Trip, owner?: string) {
   const [saved, setSaved] = useState(readOfflineTrip);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -37,11 +37,9 @@ export function OfflineAccess({ trip, owner }: { trip?: Trip; owner?: string }) 
   }
 
   if (!trip && !saved) return null;
-  return <section className="offline-access" aria-label="오프라인 일정">
-    <div>
-      {trip && <button className="secondary" disabled={busy} onClick={() => void save()}><Download size={15}/>{busy ? '저장 중' : current ? '오프라인 사본 갱신' : '오프라인용으로 저장'}</button>}
-      {saved && <a className="secondary" href={offlinePageUrl().href}>저장한 일정 보기</a>}
-    </div>
-    <p className="muted" role="status">{message || '일정과 예약 시간만 이 기기에 저장해요. 지도와 예약번호는 제외돼요.'}</p>
-  </section>;
+  return <div className="offline-menu">
+    {trip && <button type="button" disabled={busy} onClick={() => void save()}><Download size={15} aria-hidden="true"/>{busy ? '저장 중' : current ? '오프라인 사본 갱신' : '오프라인용으로 저장'}</button>}
+    {saved && <a href={offlinePageUrl().href}>저장한 일정 보기</a>}
+    <p role="status">{message}</p>
+  </div>;
 }
