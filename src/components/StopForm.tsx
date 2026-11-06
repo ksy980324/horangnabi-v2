@@ -5,6 +5,7 @@ import { uid } from '../data';
 import { searchPlaces, type SearchResult } from '../services/search';
 import { hasCoordinates, parseCoordinates, type GeoPoint, type MapView } from '../services/geo';
 import { resolveSearchQuery } from '../services/searchQuery';
+import { isGoogleMapsLink, MAX_MAP_LINK_LENGTH } from '../services/googleMapsLink';
 import { TravelMap } from './TravelMap';
 import { Modal } from './Modal';
 
@@ -17,6 +18,8 @@ export function StopForm(props: Props) {
   const savedMode = props.mode === 'saved';
   const stop = props.mode === 'saved' ? props.savedPlace : props.stop;
   const [place, setPlace] = useState<Place>(stop ?? { name: '', address: '' });
+  const [mapUrl, setMapUrl] = useState(stop?.mapUrl ?? '');
+  const [mapUrlError, setMapUrlError] = useState('');
   const [anchor] = useState(() => stop && hasCoordinates(stop) ? { lat: stop.lat, lng: stop.lng } : searchCenter);
   const [view, setView] = useState<MapView>();
   const [scope, setScope] = useState(anchor ? 'nearby' : 'global');
@@ -55,7 +58,9 @@ export function StopForm(props: Props) {
   }
   function save(event: FormEvent) {
     event.preventDefault();
-    const next = { name: place.name.trim(), address: place.address, lat: place.lat, lng: place.lng, id: stop?.id ?? uid(), category, memo };
+    const link = mapUrl.trim();
+    if (link && !isGoogleMapsLink(link)) { setMapUrlError('Google 지도에서 공유 → 링크 복사로 복사한 주소를 붙여넣어 주세요.'); return; }
+    const next = { name: place.name.trim(), address: place.address, lat: place.lat, lng: place.lng, mapUrl: link || undefined, id: stop?.id ?? uid(), category, memo };
     if (props.mode === 'saved') props.onSave(next);
     else props.onSave({ ...next, date: day, time });
   }
@@ -89,6 +94,8 @@ export function StopForm(props: Props) {
       <form className="form" onSubmit={save}>
         <label>장소 이름<input required value={place.name} maxLength={150} pattern=".*\S.*" onChange={e => setPlace({ ...place, name: e.target.value })}/></label>
         <label>주소<input value={place.address} maxLength={500} onChange={e => setPlace({ ...place, address: e.target.value })}/></label>
+        <label>Google 지도 공유 링크 (선택)<input type="url" autoComplete="off" value={mapUrl} maxLength={MAX_MAP_LINK_LENGTH} onChange={e => { setMapUrl(e.target.value); setMapUrlError(''); }} placeholder="https://maps.app.goo.gl/…"/><small className="muted">Google 지도에서 장소를 열고 공유 링크를 복사해 붙여넣으세요. 좌표 없이도 링크를 저장할 수 있어요.</small></label>
+        {mapUrlError && <p className="error" role="alert">{mapUrlError}</p>}
         <div className="coordinate-info">{place.lat !== undefined ? <><span>위도 {place.lat.toFixed(6)} · 경도 {place.lng!.toFixed(6)}</span><button type="button" className="text-button" onClick={() => setPlace({ name: place.name, address: place.address })}>위치 제거</button></> : '위치 없이도 일정을 저장할 수 있어요.'}</div>
         {!savedMode && <div className="form-row"><label>날짜<select value={day} onChange={e => setDay(e.target.value)}>{dates.map((d, i) => <option key={d} value={d}>{i + 1}일차 · {d.slice(5)}</option>)}</select></label><label>시간 (선택)<input type="time" value={time} onChange={e => setTime(e.target.value)}/></label></div>}
         <div className="form-row"><label>카테고리<select value={category} onChange={e => setCategory(e.target.value as Stop['category'])}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>{!savedMode && <button type="button" className="secondary align-end" onClick={() => setTime('')}>시간 미정으로</button>}</div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Bookmark, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { SavedPlace } from '../types';
+import { isGoogleMapsLink } from '../services/googleMapsLink';
 
 type Props = {
   places: SavedPlace[]; dates: string[]; selected?: string;
@@ -18,6 +19,7 @@ function SavedPlaceCard({ place, number, dates, selected, onSelect, onEdit, onDe
       </button>
       {selected === place.id && <div className="stop-detail">
         {place.memo && <p className="memo">{place.memo}</p>}
+        {isGoogleMapsLink(place.mapUrl) && <a className="text-button" href={place.mapUrl} target="_blank" rel="noopener noreferrer">Google 지도에서 열기</a>}
         {place.lat !== undefined && <small className="muted">{place.lat.toFixed(5)}, {place.lng!.toFixed(5)}</small>}
         <div className="stop-actions"><button className="text-button" onClick={() => onEdit(place)}><Pencil size={14}/>수정</button><button className="text-button danger" onClick={() => { if (confirm(`‘${place.name}’ 장소를 보관함에서 삭제할까요?`)) onDelete(place.id); }}><Trash2 size={14}/>삭제</button></div>
         <div className="saved-place-move"><label>일정으로 옮길 날짜<select aria-label={`${place.name} 이동 날짜`} value={targetDate} onChange={event => setDate(event.target.value)}>{dates.map((date, index) => <option key={date} value={date}>{index + 1}일차 · {date.slice(5)}</option>)}</select></label><button className="secondary" disabled={!targetDate} onClick={() => onMove(place.id, targetDate)}>일정으로 이동</button></div>
