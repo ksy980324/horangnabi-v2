@@ -92,6 +92,17 @@ npx.cmd wrangler deploy --config workers/maps-link/wrangler.jsonc
 
 서버에는 붙여넣은 짧은 URL만 보낸다. 서버는 지정한 GitHub Pages 및 로컬 개발 주소에서 보낸 요청을 처리하고, 허용된 Google 지도 호스트의 리디렉션만 확인한다. Google Places API나 여행 데이터 저장소와는 연결되지 않는다. 배포 후 일정 추가 화면에서 `https://maps.app.goo.gl/LzUxeeRnbzJS2knW9`를 붙여넣어 장소 이름과 핀이 채워지는지 확인한다.
 
+## 인천공항 출발편 조회 연결
+
+공공데이터포털의 [인천공항 여객기 정기운항편 조회](https://www.data.go.kr/data/15143060/openapi.do)를 활용 신청한다. 승인 후 기존 지도 링크 Worker에 **일반 인증키(Decoding)**를 Secret으로 추가하고 배포한다.
+
+```powershell
+npx.cmd wrangler secret put INCHEON_FLIGHT_SERVICE_KEY --config workers/maps-link/wrangler.jsonc
+npx.cmd wrangler deploy --config workers/maps-link/wrangler.jsonc
+```
+
+기존 GitHub Actions 변수 `MAPS_LINK_RESOLVER_URL`을 그대로 사용한다. 앱은 동일 Worker의 `/flight`에 편명과 날짜만 보낸다. 인증키는 브라우저 빌드와 저장소에 넣지 않는다. 일정은 게시된 정기운항 시즌의 인천 출발편이며, 실제 시간은 예약 안내와 비교한다.
+
 ## 4. 첫 배포 실행
 
 설정을 마친 후 다음을 실행합니다.

@@ -1,6 +1,6 @@
 import type { Reservation, Trip } from '../types';
 
-export const reservationLimits = { name: 150, reference: 100, url: 2048, address: 500 };
+export const reservationLimits = { name: 150, reference: 100, url: 2048, address: 500, airport: 150 };
 
 export function isReservationUrl(value: unknown): value is string {
   if (typeof value !== 'string' || value.length > reservationLimits.url) return false;
@@ -26,7 +26,8 @@ export function isReservation(value: unknown): value is Reservation {
   const item = value as Reservation;
   if (typeof item.id !== 'string' || !item.id.trim() || typeof item.name !== 'string' || !item.name.trim() || item.name.length > reservationLimits.name) return false;
   if (!optionalText(item.reference, reservationLimits.reference) || (item.url !== undefined && !isReservationUrl(item.url))) return false;
-  if (item.kind === 'flight') return optionalDateTime(item.departure);
+  if (item.kind === 'flight') return optionalDateTime(item.departure)
+    && optionalText(item.departureAirport, reservationLimits.airport) && optionalText(item.arrivalAirport, reservationLimits.airport);
   return item.kind === 'stay' && optionalText(item.address, reservationLimits.address)
     && optionalDateTime(item.checkIn) && optionalDateTime(item.checkOut)
     && (!item.checkIn || !item.checkOut || item.checkIn <= item.checkOut);
