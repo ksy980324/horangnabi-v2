@@ -18,6 +18,11 @@ test('map share text and place URLs supply a name without treating the map camer
   assert.equal(parseGoogleMapsShare('Fake\nhttps://maps.app.goo.gl.example.com/abc'), undefined);
 });
 
+test('a Google Maps place link uses the explicit place pin instead of the camera position', () => {
+  const url = 'https://www.google.com/maps/place/Udon+Marco/@35.5,133.5,17z/data=!3m5!1splace!8m2!3d35.4263429!4d133.3340368!16splace';
+  assert.deepEqual(parseGoogleMapsShare(url)?.point, { lat: 35.4263429, lng: 133.3340368 });
+});
+
 test('Google Maps share links accept short and full URLs and reject lookalikes', () => {
   assert.equal(isGoogleMapsLink('https://maps.app.goo.gl/abc'), true);
   assert.equal(isGoogleMapsLink('https://www.google.com/maps/place/Example'), true);

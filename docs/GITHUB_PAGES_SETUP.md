@@ -79,6 +79,19 @@ https://ksy980324.github.io/*
 
 브라우저용 지도 키는 빌드된 JavaScript와 네트워크 요청에서 확인 가능한 값입니다. GitHub Secret은 소스에 직접 커밋하거나 빌드 로그에 출력하는 것을 방지하는 용도이며, 배포 후 키를 숨기는 장치는 아닙니다. 웹사이트/API 제한과 기존 사용량 설정을 유지하세요. 서비스 계정 파일이나 Firebase 관리자 키를 등록하지 않습니다.
 
+## Google 지도 짧은 공유 링크 연결
+
+Cloudflare Workers 무료 요금제 계정에서 아래 명령을 실행한다. 로그인은 브라우저에서 완료한다.
+
+```powershell
+npx.cmd wrangler login
+npx.cmd wrangler deploy --config workers/maps-link/wrangler.jsonc
+```
+
+출력된 `https://horangnabi-maps-link.<subdomain>.workers.dev` 주소 끝에 `/resolve`를 붙여 GitHub 저장소 **Settings → Secrets and variables → Actions → Variables**에 `MAPS_LINK_RESOLVER_URL`로 등록한다. 다음 `main` 배포부터 적용된다. 로컬에서 테스트할 때는 같은 주소를 `.env.local`의 `VITE_MAPS_LINK_RESOLVER_URL`에 넣는다.
+
+서버에는 붙여넣은 짧은 URL만 보낸다. 서버는 지정한 GitHub Pages 및 로컬 개발 주소에서 보낸 요청을 처리하고, 허용된 Google 지도 호스트의 리디렉션만 확인한다. Google Places API나 여행 데이터 저장소와는 연결되지 않는다. 배포 후 일정 추가 화면에서 `https://maps.app.goo.gl/LzUxeeRnbzJS2knW9`를 붙여넣어 장소 이름과 핀이 채워지는지 확인한다.
+
 ## 4. 첫 배포 실행
 
 설정을 마친 후 다음을 실행합니다.

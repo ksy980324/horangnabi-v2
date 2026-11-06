@@ -14,6 +14,13 @@ export function isGoogleMapsLink(value: unknown): value is string {
   } catch { return false; }
 }
 
+export function isShortGoogleMapsLink(value: unknown): boolean {
+  if (!isGoogleMapsLink(value)) return false;
+  const { hostname, pathname } = new URL(value);
+  return hostname === 'maps.app.goo.gl' && /^\/[a-z0-9]+\/?$/i.test(pathname)
+    || hostname === 'goo.gl' && /^\/maps\/[a-z0-9]+\/?$/i.test(pathname);
+}
+
 export function parseGoogleMapsShare(value: string) {
   const match = value.trim().match(/^(?:(.*?)\s+)?(https:\/\/\S+)$/s);
   if (!match || !isGoogleMapsLink(match[2])) return;
@@ -24,7 +31,9 @@ export function parseGoogleMapsShare(value: string) {
   try { if (placeSegment) place = decodeURIComponent(placeSegment.replace(/\+/g, ' ')); } catch { /* Keep the link if its name cannot be decoded. */ }
   const query = parsed.searchParams.get('query') || parsed.searchParams.get('q') || '';
   const location = place || query;
-  const point = parseCoordinates(location);
-  const name = (title || (point ? '' : location)).trim().replace(/\s+/g, ' ').slice(0, 150);
+  const explicitPoint = parseCoordinates(location);
+  const pin = parsed.pathname.match(/^\/maps\/place\/.*\/data=.*!8m2!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)(?:!|$)/);
+  const point = explicitPoint ?? (pin ? parseCoordinates(`${pin[1]},${pin[2]}`) : undefined);
+  const name = (title || (explicitPoint ? '' : location)).trim().replace(/\s+/g, ' ').slice(0, 150);
   return { url, name, point };
 }
