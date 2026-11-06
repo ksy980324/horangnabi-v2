@@ -170,7 +170,6 @@
 .packing-shared-hint { margin: -10px 0 14px; color: #526970; font-size: 12px; }
 .packing-item-status { display: block; margin-top: 4px; color: #526970; font-size: 10px; font-weight: 400; }
 
-.map-title > .map-size-toggle { display: none; }
 .schedule .stop-order { position: relative; }
 .schedule .stop-order .stop-photo-frame { flex: 0 0 auto; width: 44px; }
 .schedule .stop-order .stop-photo { height: 44px; }
@@ -183,13 +182,6 @@
 .date-tabs .active .today-tab-badge { background: #fff; color: #17695f; }
 
 @media (max-width: 800px) {
-  .planner { overflow-anchor: none; }
-  .planner > .map-section .map-wrap { height: clamp(200px, 36svh, 320px); }
-  .planner > .map-section-compact .map-wrap { height: clamp(108px, 19svh, 160px); }
-  .planner > .map-section-compact .map-bottom { display: none; }
-  .planner > .map-section .map-title { height: 44px; gap: 8px; }
-  .map-title > .map-size-toggle { display: inline-flex; align-items: center; min-height: 44px; }
-  .map-title > .map-size-toggle + .text-button { margin-left: 0; min-height: 44px; }
   .schedule .stop-card { gap: 8px; padding-bottom: 12px; }
   .schedule .stop-order { flex-basis: 44px; }
   .schedule .stop-order .stop-number { margin-top: 12px; }
@@ -202,7 +194,23 @@
   .schedule .reorder .icon-button { min-width: 36px; min-height: 42px; }
 }
 
-@media (max-width: 800px) and (max-height: 500px) {
-  .planner > .map-section .map-wrap { height: 155px; }
-  .planner > .map-section-compact .map-wrap { height: 96px; }
+.home-upcoming { margin-top: 32px; }
+.home-section-heading { gap: 12px; }
+.home-section-heading h1 { font-size: clamp(20px, 4vw, 27px); letter-spacing: -.7px; }
+.home-section-heading h1 span { color: var(--teal); font-size: .68em; }
+.home-section-heading .primary { flex-shrink: 0; min-height: 44px; padding: 8px 12px; font-size: 12px; }
+.home-more-trips { margin-top: 16px; }
+.home-empty { display: flex; align-items: center; gap: 10px; padding: 24px; border: 1px dashed var(--border); border-radius: 14px; color: var(--muted); }
+.trip-card-featured .trip-art { height: clamp(220px, 37vw, 340px); }
+.trip-card-featured .trip-actions { padding-top: 10px; }
+.trip-featured-caption {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 58px 58px 22px 22px;
+  background: linear-gradient(transparent, #132732ec 84%);
+  color: #fff;
 }
+.trip-featured-caption h2 { margin: 6px 0 8px; font-size: clamp(23px, 5vw, 34px); line-height: 1.2; overflow-wrap: anywhere; }
+.trip-featured-caption p { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.trip-featured-caption p svg { flex-shrink: 0; }
+.trip-featured-arrow { position: absolute; right: 22px; bottom: 23px; }
