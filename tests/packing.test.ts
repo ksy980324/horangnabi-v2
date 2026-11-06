@@ -1,7 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { sampleDatabase, parseDatabase } from '../src/data.ts';
-import { savePackingItem, removePackingItem } from '../src/services/packing.ts';
+import { packingCheckedBy, packingCompletedCount, savePackingItem, removePackingItem, setPackingCheckedBy } from '../src/services/packing.ts';
+
+test('shared checklist records each member independently and preserves the other member on uncheck', () => {
+  const members = ['first', 'second'];
+  const oldItem = { id: 'passport', name: '여권', completed: true };
+  assert.equal(packingCompletedCount(oldItem, members), 0);
+  assert.equal(packingCheckedBy(oldItem, 'first'), false);
+  const firstDone = setPackingCheckedBy(oldItem, members, 'first', true);
+  assert.equal(firstDone.completed, false);
+  assert.equal(packingCheckedBy(firstDone, 'second'), false);
+  const bothDone = setPackingCheckedBy(firstDone, members, 'second', true);
+  assert.equal(packingCompletedCount(bothDone, members), 2);
+  assert.equal(bothDone.completed, true);
+  const secondOnly = setPackingCheckedBy(bothDone, members, 'first', false);
+  assert.deepEqual(secondOnly.completedBy, ['second']);
+  assert.equal(packingCompletedCount(secondOnly, ['first', 'replacement']), 0);
+  assert.equal(setPackingCheckedBy(secondOnly, members, 'unlisted', true), secondOnly);
+});
 
 test('old backups and completed checklist items remain compatible with version 1', () => {
   const db = sampleDatabase();
@@ -13,7 +30,7 @@ test('old backups and completed checklist items remain compatible with version 1
 test('checklist backups reject malformed arrays, empty fields, non-boolean checks and duplicate IDs', () => {
   const trip = sampleDatabase().trips[0];
   const item = { id: 'passport', name: '여권', completed: false };
-  for (const packingItems of [null, {}, [null], [{ ...item, id: ' ' }], [{ ...item, name: ' ' }], [{ ...item, completed: 'false' }], [{ id: 'a', name: '여권' }], [item, item]]) {
+  for (const packingItems of [null, {}, [null], [{ ...item, id: ' ' }], [{ ...item, name: ' ' }], [{ ...item, completed: 'false' }], [{ ...item, completedBy: ['a', 'a'] }], [{ ...item, completedBy: ['a', 'b', 'c'] }], [{ id: 'a', name: '여권' }], [item, item]]) {
     assert.throws(() => parseDatabase({ version: 1, trips: [{ ...trip, packingItems }] }));
   }
 });

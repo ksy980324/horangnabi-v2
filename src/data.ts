@@ -39,6 +39,7 @@ export function parseDatabase(value: unknown): Database {
       const packingIds = new Set<string>();
       for (const item of t.packingItems) {
         if (!item || typeof item.id !== 'string' || !item.id.trim() || packingIds.has(item.id) || typeof item.name !== 'string' || !item.name.trim() || typeof item.completed !== 'boolean') return fail();
+        if (item.completedBy !== undefined && (!Array.isArray(item.completedBy) || item.completedBy.length > 2 || new Set(item.completedBy).size !== item.completedBy.length || item.completedBy.some(id => typeof id !== 'string' || !id.trim()))) return fail();
         packingIds.add(item.id);
       }
     }

@@ -5,6 +5,7 @@ import { parseDatabase, uid } from '../data';
 import type { Trip } from '../types';
 import { firebaseConfig } from './firebaseConfig';
 import { nextSharedRevision, SharedTripConflict } from './sharedRevision';
+import { packingMembers, savePackingItem, setPackingCheckedBy } from './packing';
 
 const app = firebaseConfig ? initializeApp(firebaseConfig) : undefined;
 export const auth = app && getAuth(app);
@@ -50,5 +51,22 @@ export async function importSharedTrips(userId: string, trips: Trip[]) {
     const existing = await Promise.all(copies.map(({ ref }) => transaction.get(ref)));
     if (existing.some(snapshot => snapshot.exists())) throw new SharedTripConflict();
     for (const { ref, payload } of copies) transaction.set(ref, payload);
+  });
+}
+
+export async function checkSharedPackingItem(userId: string, tripId: string, itemId: string, checked: boolean) {
+  if (!firestore || auth?.currentUser?.uid !== userId) throw new Error('다시 로그인해 주세요.');
+  const { trips, members } = sharedReferences();
+  const ref = doc(trips, tripId);
+  await runTransaction(firestore, async transaction => {
+    const [current, memberDocument] = await Promise.all([transaction.get(ref), transaction.get(members)]);
+    if (!current.exists()) throw new SharedTripConflict();
+    const { trip, revision } = current.data();
+    const validated = parseDatabase({ version: 1, trips: [trip] }).trips[0];
+    const item = validated.packingItems?.find(entry => entry.id === itemId);
+    const memberIds = packingMembers(memberDocument.data()?.uids);
+    if (!item || !memberIds.includes(userId) || !Number.isSafeInteger(revision)) throw new SharedTripConflict();
+    const nextItem = setPackingCheckedBy(item, memberIds, userId, checked);
+    transaction.set(ref, tripPayload(savePackingItem(validated, nextItem), revision + 1, userId));
   });
 }

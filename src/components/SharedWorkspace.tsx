@@ -3,9 +3,10 @@ import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { onSnapshot } from 'firebase/firestore';
 import { parseDatabase } from '../data';
 import { auth, googleSignIn, sharedReferences } from '../services/firebase';
+import { packingMembers } from '../services/packing';
 import type { Database } from '../types';
 
-export type SharedData = { userId: string; db: Database; revisions: Map<string, number> };
+export type SharedData = { userId: string; memberIds: string[]; db: Database; revisions: Map<string, number> };
 
 export default function SharedWorkspace({ onBack, children }: { onBack: () => void; children: (data: SharedData) => ReactNode }) {
   const [user, setUser] = useState<User | null>();
@@ -21,8 +22,14 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
     if (!user) return;
     const refs = sharedReferences();
     let stopTrips: (() => void) | undefined;
+    let memberIds: string[] = [];
     const stopMembers = onSnapshot(refs.members, { includeMetadataChanges: true }, snapshot => {
-      if (snapshot.metadata.fromCache || stopTrips) return;
+      if (snapshot.metadata.fromCache) return;
+      memberIds = packingMembers(snapshot.data()?.uids);
+      if (stopTrips) {
+        setWorkspace(current => current && { ...current, memberIds });
+        return;
+      }
       stopTrips = onSnapshot(refs.trips, { includeMetadataChanges: true }, result => {
         if (result.metadata.fromCache) return;
         try {
@@ -33,7 +40,7 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
             revisions.set(doc.id, revision);
             return trip;
           });
-          setWorkspace({ userId: user.uid, db: parseDatabase({ version: 1, trips }), revisions });
+          setWorkspace({ userId: user.uid, memberIds, db: parseDatabase({ version: 1, trips }), revisions });
           setMessage('');
         } catch {
           setWorkspace(undefined);
