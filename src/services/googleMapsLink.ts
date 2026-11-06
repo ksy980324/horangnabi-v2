@@ -19,11 +19,12 @@ export function parseGoogleMapsShare(value: string) {
   if (!match || !isGoogleMapsLink(match[2])) return;
   const [, title, url] = match;
   const parsed = new URL(url);
-  const placeSegment = parsed.pathname.match(/^\/maps\/place\/([^/]+)/)?.[1];
+  const placeSegment = parsed.pathname.match(/^\/maps\/(?:place|search)\/([^/@][^/]*)/)?.[1];
   let place = '';
   try { if (placeSegment) place = decodeURIComponent(placeSegment.replace(/\+/g, ' ')); } catch { /* Keep the link if its name cannot be decoded. */ }
-  const placePoint = parseCoordinates(place);
-  const point = placePoint ?? parseCoordinates(parsed.searchParams.get('query') ?? '');
-  const name = (title || (placePoint ? '' : place)).trim().replace(/\s+/g, ' ').slice(0, 150);
+  const query = parsed.searchParams.get('query') || parsed.searchParams.get('q') || '';
+  const location = place || query;
+  const point = parseCoordinates(location);
+  const name = (title || (point ? '' : location)).trim().replace(/\s+/g, ' ').slice(0, 150);
   return { url, name, point };
 }
