@@ -4,11 +4,12 @@ import { onSnapshot } from 'firebase/firestore';
 import { parseDatabase } from '../data';
 import { auth, googleSignIn, sharedReferences } from '../services/firebase';
 import { packingMembers } from '../services/packing';
+import { SiteHeader, type HeaderAction } from './SiteHeader';
 import type { Database } from '../types';
 
 export type SharedData = { userId: string; memberIds: string[]; db: Database; revisions: Map<string, number> };
 
-export default function SharedWorkspace({ onBack, children }: { onBack: () => void; children: (data: SharedData) => ReactNode }) {
+export default function SharedWorkspace({ onBack, children }: { onBack: () => void; children: (data: SharedData, actions: HeaderAction[]) => ReactNode }) {
   const [user, setUser] = useState<User | null>();
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -81,16 +82,17 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
     } finally { setBusy(false); }
   }
 
+  const actions: HeaderAction[] = [{ label: '이 기기의 여행', onClick: onBack }];
+  if (user) actions.push({ label: '로그아웃', onClick: () => void changeSession(), disabled: busy });
+
+  if (workspace && workspace.userId === user?.uid) return children(workspace, actions);
   return <>
-    <div className="shared-controls">
-      <button className="secondary" onClick={onBack}>이 기기의 여행</button>
-      {user && <button className="secondary" disabled={busy} onClick={() => void changeSession()}>로그아웃</button>}
-    </div>
-    {workspace && workspace.userId === user?.uid ? children(workspace) : <main className="shared-panel">
-      <h1>호랑나비</h1>
+    <SiteHeader actions={actions}/>
+    <main className="shared-panel">
+      <h1>공유 여행</h1>
       <p role="status">{message || (user === undefined ? '로그인 상태를 확인하고 있어요.' : user ? '공유 여행을 불러오고 있어요.' : 'Google 계정으로 로그인해 공유 여행을 열어보세요.')}</p>
       {user === null && <button className="primary" disabled={busy} onClick={() => void changeSession()}>{busy ? '로그인 중' : 'Google로 로그인'}</button>}
       {user && <><p>{user.email}</p><p>Firebase 사용자 UID <code>{user.uid}</code></p><button className="secondary" onClick={() => { setMessage(''); setAttempt(value => value + 1); }}>접근 다시 확인</button></>}
-    </main>}
+    </main>
   </>;
 }

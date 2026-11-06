@@ -1,12 +1,12 @@
 import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowDown, ArrowUp, Plus, MapPin, CalendarDays, Pencil, Trash2, Compass, Download, Upload, Maximize2, Heart } from 'lucide-react';
+import { ArrowLeft, ArrowDown, ArrowUp, Plus, MapPin, CalendarDays, Pencil, Trash2, Compass, Download, Upload, Maximize2 } from 'lucide-react';
 import type { Database, PackingItem, Stop, Trip, SavedPlace } from './types';
 import { datesBetween, moveStop, parseDatabase, sampleDatabase, STORAGE_KEY, uid } from './data';
 import { TravelMap } from './components/TravelMap';
 import { Modal } from './components/Modal';
 import { useScheduleScroll } from './hooks/useScheduleScroll';
 import { tripCenter } from './services/tripLocation';
-import { ButterflyMark } from './components/BrandIcons';
+import { SiteHeader, type HeaderAction } from './components/SiteHeader';
 import { SavedPlaces } from './components/SavedPlaces';
 import { scheduleSavedPlace } from './services/savedPlaces';
 import { PackingList } from './components/PackingList';
@@ -32,11 +32,12 @@ function load(): { db: Database; error: string } {
 }
 export default function App() {
   const [sharedOpen, setSharedOpen] = useState(firebaseConfigured);
-  if (sharedOpen) return <Suspense fallback={<main className="shared-panel"><p role="status">공유 여행 화면을 열고 있어요.</p><button className="secondary" onClick={() => setSharedOpen(false)}>이 기기의 여행</button></main>}><SharedWorkspace onBack={() => setSharedOpen(false)}>{shared => <Planner key={shared.userId} shared={shared}/>}</SharedWorkspace></Suspense>;
-  return <Planner onOpenShared={firebaseConfigured ? () => setSharedOpen(true) : undefined}/>;
+  const openLocal = () => setSharedOpen(false);
+  if (sharedOpen) return <Suspense fallback={<><SiteHeader actions={[{ label: '이 기기의 여행', onClick: openLocal }]}/><main className="shared-panel"><p role="status">공유 여행 화면을 열고 있어요.</p></main></>}><SharedWorkspace onBack={openLocal}>{(shared, actions) => <Planner key={shared.userId} shared={shared} headerActions={actions}/>}</SharedWorkspace></Suspense>;
+  return <Planner headerActions={firebaseConfigured ? [{ label: '공유 여행', onClick: () => setSharedOpen(true) }] : undefined}/>;
 }
 
-function Planner({ shared, onOpenShared }: { shared?: SharedData; onOpenShared?: () => void }) {
+function Planner({ shared, headerActions }: { shared?: SharedData; headerActions?: HeaderAction[] }) {
   const [initial] = useState(() => shared ? { db: shared.db, error: '' } : load());
   const [localDb, setDb] = useState(initial.db), [storageError, setStorageError] = useState(initial.error), [blocked, setBlocked] = useState(!!initial.error);
   const db = shared?.db ?? localDb;
@@ -208,7 +209,7 @@ function Planner({ shared, onOpenShared }: { shared?: SharedData; onOpenShared?:
   const today = new Date().toLocaleDateString('sv-SE');
   const upcoming = db.trips.filter(t => t.end >= today).sort((a, b) => a.start.localeCompare(b.start));
   const past = db.trips.filter(t => t.end < today).sort((a, b) => b.start.localeCompare(a.start));
-  return <><header className="site-header"><div className="header-inner"><button className="brand" onClick={returnToTrips}><ButterflyMark/><span>호랑나비</span></button>{onOpenShared ? <button className="secondary" onClick={onOpenShared}>공유 여행</button> : <span className="header-note"><Heart size={14}/>{shared ? '공유 여행' : '우리 둘만의 여행 기록'}</span>}</div></header><main>{saving && <p role="status" className="alert">공유 여행을 저장하고 있어요.</p>}{!shared && firebaseConfigProvided && !firebaseConfigured && <p role="alert" className="alert">공유 여행의 Firebase 설정을 확인해 주세요.</p>}{storageError && <div role="alert" className="alert">{storageError}{blocked && <button onClick={() => { if (confirm('읽지 못한 기존 저장 데이터를 현재 화면의 데이터로 교체할까요?')) setBlocked(false); }}>현재 데이터로 저장 재개</button>}</div>}{notice && <div role="status" className="alert">{notice}<button onClick={() => setNotice('')}>닫기</button></div>}{!trip ? <><section className="trip-section home-upcoming">
+  return <><SiteHeader onHome={returnToTrips} actions={headerActions}/><main>{saving && <p role="status" className="alert">공유 여행을 저장하고 있어요.</p>}{!shared && firebaseConfigProvided && !firebaseConfigured && <p role="alert" className="alert">공유 여행의 Firebase 설정을 확인해 주세요.</p>}{storageError && <div role="alert" className="alert">{storageError}{blocked && <button onClick={() => { if (confirm('읽지 못한 기존 저장 데이터를 현재 화면의 데이터로 교체할까요?')) setBlocked(false); }}>현재 데이터로 저장 재개</button>}</div>}{notice && <div role="status" className="alert">{notice}<button onClick={() => setNotice('')}>닫기</button></div>}{!trip ? <><section className="trip-section home-upcoming">
   <div className="section-heading home-section-heading">
     <h1>다가오는 여행 <span>{upcoming.length}</span></h1>
     <button className="primary" onClick={() => pushEntry(tripId, { kind: 'trip' })}><Plus size={17}/>새 여행 만들기</button>
