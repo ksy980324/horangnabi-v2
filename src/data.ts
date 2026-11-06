@@ -1,5 +1,6 @@
 import { categories, type Database, type Trip } from './types.ts';
 import { isGoogleMapsLink } from './services/googleMapsLink.ts';
+import { isPhotoUrl } from './services/photoUrl.ts';
 export const STORAGE_KEY = 'horangnabi-v2:data';
 export function uid(): string {
   // LAN HTTP pages lack randomUUID; getRandomValues also works there.
@@ -53,6 +54,7 @@ export function parseDatabase(value: unknown): Database {
       for (const p of t.savedPlaces) {
         if (!p || typeof p.id !== 'string' || !p.id || ids.has(p.id) || typeof p.name !== 'string' || !p.name.trim() || typeof p.address !== 'string' || !categories.includes(p.category) || typeof p.memo !== 'string') return fail();
         if (p.mapUrl !== undefined && !isGoogleMapsLink(p.mapUrl)) return fail();
+        if (p.photoUrl !== undefined && !isPhotoUrl(p.photoUrl)) return fail();
         if ((p.lat === undefined) !== (p.lng === undefined)) return fail();
         if (p.lat !== undefined && (!Number.isFinite(p.lat) || Math.abs(p.lat) > 90 || !Number.isFinite(p.lng) || Math.abs(p.lng!) > 180)) return fail();
         ids.add(p.id);
@@ -61,6 +63,7 @@ export function parseDatabase(value: unknown): Database {
     for (const s of t.stops) {
       if (!s || typeof s.id !== 'string' || ids.has(s.id) || typeof s.name !== 'string' || !s.name.trim() || typeof s.address !== 'string' || !isDate(s.date) || s.date < t.start || s.date > t.end || typeof s.time !== 'string' || (s.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(s.time)) || !categories.includes(s.category) || typeof s.memo !== 'string') return fail();
       if (s.mapUrl !== undefined && !isGoogleMapsLink(s.mapUrl)) return fail();
+      if (s.photoUrl !== undefined && !isPhotoUrl(s.photoUrl)) return fail();
       if ((s.lat === undefined) !== (s.lng === undefined)) return fail();
       if (s.lat !== undefined && (!Number.isFinite(s.lat) || Math.abs(s.lat) > 90 || !Number.isFinite(s.lng) || Math.abs(s.lng!) > 180)) return fail();
       ids.add(s.id);

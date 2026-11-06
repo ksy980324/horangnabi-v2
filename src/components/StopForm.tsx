@@ -7,6 +7,7 @@ import { hasCoordinates, parseCoordinates, type GeoPoint, type MapView } from '.
 import { resolveSearchQuery } from '../services/searchQuery';
 import { isGoogleMapsLink, isShortGoogleMapsLink, MAX_MAP_LINK_LENGTH, parseGoogleMapsShare } from '../services/googleMapsLink';
 import { mapsLinkResolverUrl, resolveGoogleMapsLink } from '../services/resolveGoogleMapsLink';
+import { isPhotoUrl, MAX_PHOTO_URL_LENGTH } from '../services/photoUrl';
 import { TravelMap } from './TravelMap';
 import { Modal } from './Modal';
 
@@ -21,6 +22,8 @@ export function StopForm(props: Props) {
   const [place, setPlace] = useState<Place>(stop ?? { name: '', address: '' });
   const [mapUrl, setMapUrl] = useState(stop?.mapUrl ?? '');
   const [mapUrlError, setMapUrlError] = useState('');
+  const [photoUrl, setPhotoUrl] = useState(stop?.photoUrl ?? '');
+  const [photoError, setPhotoError] = useState('');
   const [lookupUrl, setLookupUrl] = useState('');
   const autoPlaceName = useRef('');
   const autoPlacePoint = useRef<GeoPoint | undefined>(undefined);
@@ -107,8 +110,10 @@ export function StopForm(props: Props) {
     event.preventDefault();
     if (lookupUrl) return;
     const link = mapUrl.trim();
+    const photo = photoUrl.trim();
+    if (photo && !isPhotoUrl(photo)) { setPhotoError('https://로 시작하는 이미지 주소를 입력해 주세요.'); return; }
     if (link && !isGoogleMapsLink(link)) { setMapUrlError('Google 지도에서 공유 → 링크 복사로 복사한 주소를 붙여넣어 주세요.'); return; }
-    const next = { name: place.name.trim(), address: place.address, lat: place.lat, lng: place.lng, mapUrl: link || undefined, id: stop?.id ?? uid(), category, memo };
+    const next = { name: place.name.trim(), address: place.address, lat: place.lat, lng: place.lng, mapUrl: link || undefined, photoUrl: photo || undefined, id: stop?.id ?? uid(), category, memo };
     if (props.mode === 'saved') props.onSave(next);
     else props.onSave({ ...next, date: day, time });
   }
@@ -142,6 +147,9 @@ export function StopForm(props: Props) {
       <form className="form" onSubmit={save}>
         <label>장소 이름<input required value={place.name} maxLength={150} pattern=".*\S.*" onChange={e => { autoPlaceName.current = ''; setPlace({ ...place, name: e.target.value }); }}/></label>
         <label>주소<input value={place.address} maxLength={500} onChange={e => setPlace({ ...place, address: e.target.value })}/></label>
+        <label>대표 사진 주소 (선택)<input type="url" autoComplete="off" value={photoUrl} maxLength={MAX_PHOTO_URL_LENGTH} onChange={e => { setPhotoUrl(e.target.value); setPhotoError(''); }} placeholder="https://…"/><small className="muted">사용할 수 있는 사진의 이미지 주소를 복사해 붙여넣으세요.</small></label>
+        {(place.name.trim() || query.trim()) && <a className="text-button" href={`https://www.google.com/search?${new URLSearchParams({ tbm: 'isch', q: `${place.name.trim() || query.trim()} ${region}` })}`} target="_blank" rel="noopener noreferrer">Google 이미지에서 사진 찾기</a>}
+        {photoError && <p className="error" role="alert">{photoError}</p>}
         <label>Google 지도 공유 링크 (선택)<input type="url" autoComplete="off" value={mapUrl} maxLength={MAX_MAP_LINK_LENGTH} onChange={e => { mapLinkEdited.current = true; setMapUrl(e.target.value); setMapUrlError(''); }} onBlur={() => { if (mapLinkEdited.current) updateMapLink(mapUrl); }} onPaste={pasteMapLink} placeholder="https://maps.app.goo.gl/…"/><small className="muted">Google 지도에서 장소를 열고 브라우저 주소나 공유 텍스트를 붙여넣으면, 포함된 장소 이름을 채울 수 있어요.</small></label>
         {lookupUrl && <p className="muted" role="status">Google 지도 링크에서 장소를 확인하고 있어요.</p>}
         {!lookupUrl && !place.name.trim() && isGoogleMapsLink(mapUrl) && <p className="muted">이 링크에서 장소 이름을 확인하지 못했어요. 이름을 직접 입력하거나 <a href={mapUrl} target="_blank" rel="noopener noreferrer">브라우저에서 링크를 열어</a> 주소창의 전체 주소를 복사해 보세요.</p>}
