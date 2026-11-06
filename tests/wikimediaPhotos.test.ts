@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { matchingImage, photoFromFile } from '../src/services/wikimediaPhotos';
+import { matchingImage, photoFromFile, representativeTripPlace } from '../src/services/wikimediaPhotos';
+
+test('curated trip covers follow the destination and support legacy Japan trips', () => {
+  assert.equal(representativeTripPlace({ region: '일본 · 오사카' })?.name, '오사카성');
+  assert.equal(representativeTripPlace({ region: '일본 · 요나고', destination: { countryCode: 'JP', cityName: 'Yonago' } })?.name, '요나고성 터');
+  assert.equal(representativeTripPlace({ region: '일본 · 요나고', destination: { countryCode: 'US', cityName: 'Yonago' } }), undefined);
+});
 
 test('only a uniquely matching nearby article supplies an automatic photo', () => {
   const articles = [{ title: '오사카성 공원', pageimage: 'Park.jpg' }, { title: '오사카성', pageimage: 'Castle.jpg' }];

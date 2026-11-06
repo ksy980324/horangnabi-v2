@@ -1,11 +1,12 @@
-import { hasCoordinates, type GeoPoint } from './geo.ts';
-import type { Place } from '../types';
+import { distanceKm, hasCoordinates, type GeoPoint } from './geo.ts';
+import type { Place, Trip } from '../types';
 
 export type WikimediaPhoto = { url: string; source: string; author: string; license: string; licenseUrl?: string };
-type Article = { title: string; pageimage?: string };
+type Article = { title: string; pageimage?: string; coordinates?: { lat: number; lon: number }[]; langlinks?: { title: string }[] };
 type ImageInfo = { thumburl?: string; descriptionurl?: string; extmetadata?: Record<string, { value?: string }> };
 
 const normalizeTitle = (value: string) => value.normalize('NFKC').toLowerCase().replace(/[\s_·・]/gu, '');
+const wikiLanguage = (name: string) => /[가-힣]/u.test(name) ? 'ko' : /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(name) ? 'ja' : 'en';
 export function matchingImage(articles: Article[], name: string): string | undefined {
   const matches = articles.filter(article => normalizeTitle(article.title) === normalizeTitle(name));
   return matches.length === 1 ? matches[0].pageimage : undefined;
@@ -53,29 +54,80 @@ export function photoFromFile(info: ImageInfo | undefined): WikimediaPhoto | und
 }
 
 async function findPhoto(name: string, point: GeoPoint) {
-  const language = /[가-힣]/u.test(name) ? 'ko' : /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(name) ? 'ja' : 'en';
-  const articles = await wikiQuery<{ query?: { pages?: Article[] } }>(`${language}.wikipedia.org`, {
+  const articles = await wikiQuery<{ query?: { pages?: Article[] } }>(`${wikiLanguage(name)}.wikipedia.org`, {
     generator: 'geosearch', ggscoord: `${point.lat}|${point.lng}`, ggsradius: '1000', ggslimit: '30', ggsnamespace: '0',
     prop: 'pageimages', piprop: 'name', pilicense: 'free',
   });
   const file = matchingImage(articles.query?.pages ?? [], name);
-  if (!file) return;
+  if (file) return findFilePhoto(file, '144');
+}
+
+async function findFilePhoto(file: string, width: string) {
   const files = await wikiQuery<{ query?: { pages?: { imageinfo?: ImageInfo[] }[] } }>('commons.wikimedia.org', {
-    titles: `File:${file}`, prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '144',
+    titles: `File:${file}`, prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: width,
     iiextmetadatafilter: 'Artist|Attribution|LicenseShortName|LicenseUrl',
   });
   return photoFromFile(files.query?.pages?.[0]?.imageinfo?.[0]);
 }
 
-export function loadWikimediaPhoto(place: Pick<Place, 'name' | 'lat' | 'lng'>): Promise<WikimediaPhoto | undefined> {
-  if (!place.name.trim() || !hasCoordinates(place)) return Promise.resolve(undefined);
-  const point = { lat: Number(place.lat.toFixed(4)), lng: Number(place.lng.toFixed(4)) };
-  const key = `${normalizeTitle(place.name)}:${point.lat}:${point.lng}`;
+function cachedPhoto(key: string, lookup: () => Promise<WikimediaPhoto | undefined>) {
   const cached = cache.get(key);
   if (cached) return cached;
-  const next = queue.then(() => findPhoto(place.name, point)).catch(() => undefined);
+  const next = queue.then(lookup).catch(() => undefined);
   queue = next;
   if (cache.size >= 100) cache.delete(cache.keys().next().value!);
   cache.set(key, next);
   return next;
+}
+
+export function loadWikimediaPhoto(place: Pick<Place, 'name' | 'lat' | 'lng'>): Promise<WikimediaPhoto | undefined> {
+  if (!place.name.trim() || !hasCoordinates(place)) return Promise.resolve(undefined);
+  const point = { lat: Number(place.lat.toFixed(4)), lng: Number(place.lng.toFixed(4)) };
+  return cachedPhoto(`${normalizeTitle(place.name)}:${point.lat}:${point.lng}`, () => findPhoto(place.name, point));
+}
+
+const representativePlaces = [
+  { names: ['오사카', 'Osaka', '大阪'], name: '오사카성', file: 'Osaka Castle 02bs3200.jpg' },
+  { names: ['요나고', 'Yonago', '米子'], name: '요나고성 터', file: 'Yonago castle.JPG' },
+];
+
+export function representativeTripPlace(trip: Pick<Trip, 'destination' | 'region'>) {
+  const { destination, region } = trip;
+  const city = destination?.countryCode === 'JP' ? destination.cityName : !destination ? /^일본\s*[·,]\s*(.+)$/.exec(region)?.[1] : undefined;
+  if (!city) return;
+  const title = normalizeTitle(city);
+  return representativePlaces.find(place => place.names.some(name => normalizeTitle(name) === title));
+}
+
+export function loadTripCover(trip: Pick<Trip, 'destination' | 'region'>) {
+  const featured = representativeTripPlace(trip);
+  const city = trip.destination;
+  if (featured) return cachedPhoto(`cover:${featured.file}`, () => findFilePhoto(featured.file, '640'));
+  if (!city || !hasCoordinates(city)) return Promise.resolve(undefined);
+  return cachedPhoto(`cover:${city.countryCode}:${city.cityName}:${city.lat}:${city.lng}`, async () => {
+    const language = wikiLanguage(city.cityName);
+    const article = await findCityArticle(language, city.cityName);
+    const file = cityArticlePhoto(article, city);
+    if (file) return findFilePhoto(file, '640');
+    const englishTitle = article?.langlinks?.[0]?.title;
+    if (language !== 'en' && englishTitle) {
+      const fallback = cityArticlePhoto(await findCityArticle('en', englishTitle), city);
+      if (fallback) return findFilePhoto(fallback, '640');
+    }
+  });
+}
+
+async function findCityArticle(language: string, title: string) {
+  const articles = await wikiQuery<{ query?: { pages?: Article[] } }>(`${language}.wikipedia.org`, {
+    titles: title, redirects: '1', prop: 'pageimages|coordinates|langlinks', piprop: 'name', pilicense: 'free', lllang: 'en',
+  });
+  return articles.query?.pages?.[0];
+}
+
+function cityArticlePhoto(article: Article | undefined, city: GeoPoint) {
+  const file = article?.pageimage;
+  if (!file || !/\.(?:jpe?g|png|webp)$/i.test(file) || /(?:^|[\s_.-])(?:map|flag|locator|location|logo)(?:[\s_.-]|$)/i.test(file)) return;
+  const coordinate = article.coordinates?.[0];
+  const point = { lat: coordinate?.lat, lng: coordinate?.lon };
+  if (hasCoordinates(point) && distanceKm(city, point) <= 30) return file;
 }

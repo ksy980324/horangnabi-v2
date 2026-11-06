@@ -77,11 +77,12 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
   return <>
     <div className="shared-controls">
       <button className="secondary" onClick={onBack}>이 기기의 여행</button>
-      {user !== undefined && <button className="secondary" disabled={busy} onClick={() => void changeSession()}>{user ? '로그아웃' : 'Google로 로그인'}</button>}
+      {user && <button className="secondary" disabled={busy} onClick={() => void changeSession()}>로그아웃</button>}
     </div>
     {workspace && workspace.userId === user?.uid ? children(workspace) : <main className="shared-panel">
-      <h1>우리의 공유 여행</h1>
-      <p role="status">{message || (user === undefined ? '로그인 상태를 확인하고 있어요.' : user ? '공유 여행을 불러오고 있어요.' : '두 사람이 같은 여행을 편집하려면 Google 계정으로 로그인하세요.')}</p>
+      <h1>호랑나비</h1>
+      <p role="status">{message || (user === undefined ? '로그인 상태를 확인하고 있어요.' : user ? '공유 여행을 불러오고 있어요.' : 'Google 계정으로 로그인해 공유 여행을 열어보세요.')}</p>
+      {user === null && <button className="primary" disabled={busy} onClick={() => void changeSession()}>{busy ? '로그인 중' : 'Google로 로그인'}</button>}
       {user && <><p>{user.email}</p><p>Firebase 사용자 UID <code>{user.uid}</code></p><button className="secondary" onClick={() => { setMessage(''); setAttempt(value => value + 1); }}>접근 다시 확인</button></>}
     </main>}
   </>;
