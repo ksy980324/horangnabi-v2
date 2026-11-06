@@ -76,7 +76,7 @@
 }
 
 .butterfly-mark{width:42px;height:42px;flex-shrink:0}.intro-stamp .tiger-mascot{width:72px;height:72px}.home-intro h1{margin-top:0}
-.trip-view-tabs{display:flex;gap:8px;margin:0 0 22px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.trip-view-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 22px;padding-bottom:12px;border-bottom:1px solid var(--border)}
 .trip-view-tabs button{min-height:44px;background:#fff;border:1px solid var(--border);border-radius:9px;padding:10px 16px;font-size:13px}
 .trip-view-tabs button[aria-pressed=true]{background:var(--teal);border-color:var(--teal);color:#fff}
 .trip-view-tabs span{font-size:11px;opacity:.8}.saved-places .day-heading{margin-top:4px}.saved-place-content{padding-right:17px}
@@ -297,6 +297,20 @@
 .reservation-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; }
 .reservation-actions > * { min-height: 44px; }
 .reservation-link { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+.expenses { max-width: 760px; margin: 0 auto; }
+.expense-totals, .expense-list { display: grid; gap: 10px; margin: 14px 0 0; padding: 0; list-style: none; }
+.expense-totals { grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+.expense-totals li, .expense-list li { padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: #fff; overflow-wrap: anywhere; }
+.expense-totals li { background: #f3faf7; }
+.expense-totals strong { display: block; font-size: 18px; margin: 3px 0; }
+.expense-totals p, .expense-entry p { font-size: 12px; color: #526970; margin-top: 4px; }
+.expense-totals .expense-settlement { font-weight: 700; color: #126a62; }
+.expense-entry { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; }
+.expense-actions, .offline-access > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.expense-actions button { min-height: 44px; padding-inline: 8px; }
+.offline-access { margin-top: 28px; }
+.offline-access .secondary { display: inline-flex; align-items: center; text-decoration: none; }
+.offline-access p { margin-top: 8px; font-size: 12px; }
 .reservation-itinerary-status { margin-top: 12px; color: #526970; font-size: 12px; line-height: 1.5; }
 .flight-lookup { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: #f3faf7; }
 .flight-lookup input { min-width: 0; }

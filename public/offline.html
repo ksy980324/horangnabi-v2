@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>호랑나비 · 오프라인 일정</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #f8faf9; color: #233647; font: 16px/1.55 system-ui, sans-serif; }
+  main { max-width: 700px; margin: auto; padding: 24px 16px; overflow-wrap: anywhere; }
+  h1, h2, h3, p { margin: 0; }
+  h1 { margin: 12px 0 4px; }
+  h2 { font-size: 19px; margin: 24px 0 8px; }
+  h3 { font-size: 16px; }
+  p { color: #526970; font-size: 14px; white-space: pre-wrap; }
+  .card { background: white; border: 1px solid #e4ebe8; border-radius: 12px; margin: 8px 0; padding: 12px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+  a, button { font: inherit; color: #126a62; border: 1px solid #c9dfd9; border-radius: 8px; background: white; padding: 9px 12px; text-decoration: none; }
+</style>
+<main>
+  <p>호랑나비 · 오프라인 사본</p>
+  <h1 id="title">저장한 일정</h1>
+  <p id="status" role="status"></p>
+  <div class="actions"><a href="./">호랑나비 열기</a><button id="delete" hidden>이 기기 사본 삭제</button></div>
+  <div id="contents"></div>
+</main>
+<script>
+  const key = 'horangnabi-v2:offline-trip';
+  const status = document.querySelector('#status');
+  const title = document.querySelector('#title');
+  const contents = document.querySelector('#contents');
+  const remove = document.querySelector('#delete');
+
+  function add(parent, tag, text) {
+    const node = document.createElement(tag);
+    node.textContent = text;
+    parent.append(node);
+    return node;
+  }
+
+  function render() {
+    contents.replaceChildren();
+    title.textContent = '저장한 일정';
+    remove.hidden = true;
+    try {
+      const saved = JSON.parse(localStorage.getItem(key));
+      if (!saved) { status.textContent = '이 기기에 저장한 여행이 없어요.'; return; }
+      title.textContent = saved.name;
+      status.textContent = saved.region + ' · ' + saved.start + ' ~ ' + saved.end
+        + '\n저장 ' + new Date(saved.savedAt).toLocaleString('ko-KR') + ' · 저장 이후 변경은 반영되지 않아요.';
+      remove.hidden = false;
+      if (saved.reservations.length) {
+        add(contents, 'h2', '예약');
+        for (const item of saved.reservations) {
+          const card = add(contents, 'div', '');
+          card.className = 'card';
+          add(card, 'h3', item.name);
+          for (const [label, time] of item.times) if (time) add(card, 'p', label + ' ' + time.replace('T', ' '));
+          if (item.address) add(card, 'p', item.address);
+        }
+      }
+      const days = [...new Set(saved.stops.map(stop => stop.date))].sort();
+      if (!days.length) add(contents, 'p', '등록한 일정이 없어요.');
+      for (const day of days) {
+        add(contents, 'h2', day);
+        saved.stops.filter(stop => stop.date === day).forEach((stop, index) => {
+          const card = add(contents, 'div', '');
+          card.className = 'card';
+          add(card, 'h3', (index + 1) + '. ' + stop.name);
+          add(card, 'p', stop.time || '시간 미정');
+          if (stop.address) add(card, 'p', stop.address);
+          if (stop.memo) add(card, 'p', stop.memo);
+        });
+      }
+    } catch {
+      contents.replaceChildren();
+      status.textContent = '오프라인 사본을 읽지 못했어요.';
+    }
+  }
+
+  remove.addEventListener('click', () => {
+    if (!confirm('이 기기의 오프라인 사본을 삭제할까요?')) return;
+    localStorage.removeItem(key);
+    render();
+  });
+  window.addEventListener('storage', event => { if (event.key === key || event.key === null) render(); });
+  render();
+</script>
+</html>

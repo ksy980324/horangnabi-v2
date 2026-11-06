@@ -2,6 +2,7 @@ import { categories, type Database, type Trip } from './types.ts';
 import { isGoogleMapsLink } from './services/googleMapsLink.ts';
 import { isPhotoUrl } from './services/photoUrl.ts';
 import { isReservation } from './services/reservations.ts';
+import { expenseLimit, isExpense } from './services/expenses.ts';
 export const STORAGE_KEY = 'horangnabi-v2:data';
 export function uid(): string {
   // LAN HTTP pages lack randomUUID; getRandomValues also works there.
@@ -44,6 +45,8 @@ export function parseDatabase(value: unknown): Database {
   for (const t of db.trips) {
     if (!t || typeof t.id !== 'string' || tripIds.has(t.id) || typeof t.name !== 'string' || !t.name.trim() || typeof t.region !== 'string' || !isDate(t.start) || !isDate(t.end) || !datesBetween(t.start, t.end).length || !Array.isArray(t.stops)) return fail();
     tripIds.add(t.id);
+    if (t.expenses !== undefined && (!Array.isArray(t.expenses) || t.expenses.length > expenseLimit
+      || !t.expenses.every(isExpense) || new Set(t.expenses.map(item => item.id)).size !== t.expenses.length)) return fail();
     if (t.reservations !== undefined) {
       if (!Array.isArray(t.reservations) || !t.reservations.every(isReservation)) return fail();
       if (new Set(t.reservations.map(item => item.id)).size !== t.reservations.length) return fail();

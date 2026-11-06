@@ -4,6 +4,7 @@ import { onSnapshot } from 'firebase/firestore';
 import { parseDatabase } from '../data';
 import { auth, googleSignIn, sharedReferences } from '../services/firebase';
 import { packingMembers } from '../services/packing';
+import { clearSharedOfflineTrip } from '../services/offlineTrip';
 import { SiteHeader, type HeaderAction } from './SiteHeader';
 import type { Database } from '../types';
 
@@ -17,7 +18,10 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
   const [workspace, setWorkspace] = useState<SharedData>();
   useEffect(() => {
     if (!auth) return;
-    return onAuthStateChanged(auth, next => { setWorkspace(undefined); setMessage(''); setUser(next); });
+    return onAuthStateChanged(auth, next => {
+      if (next) clearSharedOfflineTrip(next.uid);
+      setWorkspace(undefined); setMessage(''); setUser(next);
+    });
   }, []);
   useEffect(() => {
     if (!user) return;
@@ -64,7 +68,7 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
     setBusy(true);
     setMessage('');
     try {
-      if (user) await signOut(auth);
+      if (user) { await signOut(auth); clearSharedOfflineTrip(); }
       else await googleSignIn();
     } catch (error) {
       const code = error instanceof Error && 'code' in error && typeof error.code === 'string' && /^auth\/[a-z0-9-]+$/.test(error.code) ? error.code : '';
