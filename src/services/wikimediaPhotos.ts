@@ -87,9 +87,23 @@ export function loadWikimediaPhoto(place: Pick<Place, 'name' | 'lat' | 'lng'>): 
 }
 
 const representativePlaces = [
-  { names: ['오사카', 'Osaka', '大阪'], name: '오사카성', file: 'Osaka Castle 02bs3200.jpg' },
-  { names: ['요나고', 'Yonago', '米子'], name: '요나고성 터', file: 'Yonago castle.JPG' },
-];
+  {
+    names: ['오사카', 'Osaka', '大阪'], name: '오사카성',
+    photo: {
+      url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e4/Osaka_Castle_02bs3200.jpg/500px-Osaka_Castle_02bs3200.jpg',
+      source: 'https://commons.wikimedia.org/wiki/File:Osaka_Castle_02bs3200.jpg',
+      author: '663highland', license: 'CC BY 2.5', licenseUrl: 'https://creativecommons.org/licenses/by/2.5/',
+    },
+  },
+  {
+    names: ['요나고', 'Yonago', '米子'], name: '요나고성 터',
+    photo: {
+      url: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d9/Yonago_castle.JPG/500px-Yonago_castle.JPG',
+      source: 'https://commons.wikimedia.org/wiki/File:Yonago_castle.JPG',
+      author: 'Sengoku40', license: 'CC BY-SA 3.0', licenseUrl: 'https://creativecommons.org/licenses/by-sa/3.0/',
+    },
+  },
+] satisfies { names: string[]; name: string; photo: WikimediaPhoto }[];
 
 export function representativeTripPlace(trip: Pick<Trip, 'destination' | 'region'>) {
   const { destination, region } = trip;
@@ -99,10 +113,7 @@ export function representativeTripPlace(trip: Pick<Trip, 'destination' | 'region
   return representativePlaces.find(place => place.names.some(name => normalizeTitle(name) === title));
 }
 
-export function loadTripCover(trip: Pick<Trip, 'destination' | 'region'>) {
-  const featured = representativeTripPlace(trip);
-  const city = trip.destination;
-  if (featured) return cachedPhoto(`cover:${featured.file}`, () => findFilePhoto(featured.file, '640'));
+export function loadTripCover(city: Trip['destination']) {
   if (!city || !hasCoordinates(city)) return Promise.resolve(undefined);
   return cachedPhoto(`cover:${city.countryCode}:${city.cityName}:${city.lat}:${city.lng}`, async () => {
     const language = wikiLanguage(city.cityName);

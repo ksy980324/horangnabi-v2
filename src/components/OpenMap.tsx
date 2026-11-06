@@ -9,6 +9,7 @@ export default function OpenMap({ points, selected, onSelect, onPick, fitKey, co
   const callbacks = useRef({ onSelect, onPick, onViewChange });
   callbacks.current = { onSelect, onPick, onViewChange };
   const startCenter = useRef(initialCenter);
+  const markerElements = useRef<{ id: string; button: HTMLButtonElement; marker: maplibregl.Marker }[]>([]);
   const hasMappedPoints = points.some(point => point.lat !== undefined && point.lng !== undefined);
   const [ready, setReady] = useState(false), [error, setError] = useState(false);
   useEffect(() => {
@@ -60,13 +61,21 @@ export default function OpenMap({ points, selected, onSelect, onPick, fitKey, co
   useEffect(() => {
     if (!ready || !map.current) return;
     const markers = points.filter(p => p.lat !== undefined && p.lng !== undefined).map(p => {
-      const button = document.createElement('button'); button.type = 'button'; button.className = `map-pin ${p.id === selected ? 'active' : ''}`;
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'map-pin';
       button.textContent = String(p.number); button.setAttribute('aria-label', `${p.number}. ${p.name}`);
       button.addEventListener('click', e => { e.stopPropagation(); callbacks.current.onSelect?.(p.id); });
-      return new maplibregl.Marker({ element: button }).setLngLat([p.lng!, p.lat!]).addTo(map.current!);
+      const marker = new maplibregl.Marker({ element: button }).setLngLat([p.lng!, p.lat!]).addTo(map.current!);
+      return { id: p.id, button, marker };
     });
-    return () => markers.forEach(m => m.remove());
-  }, [points, selected, ready]);
+    markerElements.current = markers;
+    return () => {
+      markerElements.current = [];
+      markers.forEach(({ marker }) => marker.remove());
+    };
+  }, [points, ready]);
+  useEffect(() => {
+    for (const { id, button } of markerElements.current) button.classList.toggle('active', id === selected);
+  }, [selected, points, ready]);
   useEffect(() => {
     if (!ready || !map.current) return;
     const valid = points.filter(p => p.lat !== undefined && p.lng !== undefined);

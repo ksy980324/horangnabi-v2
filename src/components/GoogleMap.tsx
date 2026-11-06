@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { TravelMapProps } from './mapTypes';
-import { GOOGLE_MAP_ERROR, loadGoogleMaps, type GoogleMapInstance, type GoogleMapsApi } from '../services/googleMaps';
+import { GOOGLE_MAP_ERROR, loadGoogleMaps, type GoogleMapInstance, type GoogleMapsApi, type GoogleMarker } from '../services/googleMaps';
 import { itineraryPath } from '../services/geo';
 
 export default function GoogleMap({ points, selected, onSelect, onPick, fitKey, apiKey, mapId, connectPoints = false, initialCenter, onViewChange }: TravelMapProps & { apiKey: string; mapId: string }) {
   const container = useRef<HTMLDivElement>(null), map = useRef<GoogleMapInstance | null>(null);
   const callbacks = useRef({ onSelect, onPick, onViewChange }); callbacks.current = { onSelect, onPick, onViewChange };
   const startCenter = useRef(initialCenter);
+  const markerElements = useRef<{ id: string; number: number; marker: GoogleMarker; button: HTMLButtonElement }[]>([]);
   const hasMappedPoints = points.some(point => point.lat !== undefined && point.lng !== undefined);
   const [sdk, setSdk] = useState<GoogleMapsApi>(), [error, setError] = useState('');
 
@@ -61,17 +62,29 @@ export default function GoogleMap({ points, selected, onSelect, onPick, fitKey, 
     if (!sdk || !map.current) return;
     const markers = points.filter(p => p.lat !== undefined && p.lng !== undefined).map(p => {
       const button = document.createElement('button');
-      button.type = 'button'; button.className = `map-pin ${p.id === selected ? 'active' : ''}`;
+      button.type = 'button'; button.className = 'map-pin';
       button.textContent = String(p.number); button.setAttribute('aria-label', `${p.number}. ${p.name}`);
-      const marker = new sdk.marker.AdvancedMarkerElement({ map: map.current!, position: { lat: p.lat!, lng: p.lng! }, content: button, title: `${p.number}. ${p.name}`, zIndex: p.id === selected ? 1000 : p.number });
+      const marker = new sdk.marker.AdvancedMarkerElement({ map: map.current!, position: { lat: p.lat!, lng: p.lng! }, content: button, title: `${p.number}. ${p.name}`, zIndex: p.number });
       const select = (event: Event) => { event.stopPropagation(); callbacks.current.onSelect?.(p.id); };
       // DOM click also supports keyboard activation of the real button.
       button.addEventListener('click', select);
       marker.addListener('click', () => callbacks.current.onSelect?.(p.id));
-      return { marker, button, select };
+      return { id: p.id, number: p.number, marker, button, select };
     });
-    return () => markers.forEach(({ marker, button, select }) => { button.removeEventListener('click', select); sdk.event.clearInstanceListeners(marker); marker.map = null; });
-  }, [points, selected, sdk]);
+    markerElements.current = markers;
+    return () => {
+      markerElements.current = [];
+      markers.forEach(({ marker, button, select }) => { button.removeEventListener('click', select); sdk.event.clearInstanceListeners(marker); marker.map = null; });
+    };
+  }, [points, sdk]);
+
+  useEffect(() => {
+    for (const { id, number, marker, button } of markerElements.current) {
+      const active = id === selected;
+      button.classList.toggle('active', active);
+      marker.zIndex = active ? 1000 : number;
+    }
+  }, [selected, points, sdk]);
 
   useEffect(() => {
     if (!sdk || !map.current) return;

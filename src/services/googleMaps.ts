@@ -12,7 +12,7 @@ export type GoogleMapInstance = {
   addListener(event: string, callback: (event: GoogleMapClick) => void): GoogleListener;
 };
 type GoogleBounds = { extend(position: Coordinates): GoogleBounds };
-export type GoogleMarker = { map: GoogleMapInstance | null; addListener(event: string, callback: () => void): GoogleListener };
+export type GoogleMarker = { map: GoogleMapInstance | null; zIndex: number; addListener(event: string, callback: () => void): GoogleListener };
 export type GoogleMapsApi = {
   Map: new (element: HTMLElement, options: Record<string, unknown>) => GoogleMapInstance;
   LatLngBounds: new () => GoogleBounds;
