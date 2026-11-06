@@ -25,6 +25,15 @@ export function moveStop(trip: Trip, date: string, id: string, direction: number
   [stops[indices[index]], stops[indices[target]]] = [stops[indices[target]], stops[indices[index]]];
   return { ...trip, stops };
 }
+export function reorderStop(trip: Trip, date: string, id: string, target: number): Trip {
+  const day = trip.stops.filter(stop => stop.date === date);
+  const index = day.findIndex(stop => stop.id === id);
+  if (index < 0 || index === target || !Number.isInteger(target) || target < 0 || target >= day.length) return trip;
+  const [stop] = day.splice(index, 1);
+  day.splice(target, 0, stop);
+  let next = 0;
+  return { ...trip, stops: trip.stops.map(item => item.date === date ? day[next++] : item) };
+}
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v + 'T00:00:00Z')) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
 export function parseDatabase(value: unknown): Database {
   const fail = () => { throw new Error('올바른 호랑나비 백업 파일이 아닙니다.'); };

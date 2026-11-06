@@ -1,6 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { datesBetween, moveStop, parseDatabase, sampleDatabase } from '../src/data.ts';
+import { datesBetween, moveStop, parseDatabase, reorderStop, sampleDatabase } from '../src/data.ts';
+
+test('dragging across multiple stops inserts the item without changing other days', () => {
+  const trip = sampleDatabase().trips[0];
+  const [first, second, third, otherDay, ...rest] = trip.stops;
+  const interleaved = { ...trip, stops: [first, otherDay, second, third, ...rest] };
+  const moved = reorderStop(interleaved, first.date, first.id, 2);
+  assert.deepEqual(moved.stops, [second, otherDay, third, first, ...rest]);
+  assert.deepEqual(reorderStop(moved, first.date, first.id, 0).stops, interleaved.stops);
+  assert.equal(reorderStop(interleaved, first.date, first.id, 0), interleaved);
+  assert.equal(reorderStop(interleaved, first.date, first.id, 3), interleaved);
+  assert.equal(reorderStop(interleaved, first.date, otherDay.id, 0), interleaved);
+});
 test('dates span leap day and year boundary without timezone drift', () => {
   assert.deepEqual(datesBetween('2028-02-28', '2028-03-01'), ['2028-02-28', '2028-02-29', '2028-03-01']);
   assert.deepEqual(datesBetween('2026-12-31', '2027-01-01'), ['2026-12-31', '2027-01-01']);
