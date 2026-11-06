@@ -1,3 +1,5 @@
+import { parseCoordinates } from './geo.ts';
+
 export const MAX_MAP_LINK_LENGTH = 2048;
 
 export function isGoogleMapsLink(value: unknown): value is string {
@@ -10,4 +12,18 @@ export function isGoogleMapsLink(value: unknown): value is string {
     if (hostname === 'maps.google.com') return pathname === '/' || /^\/maps(?:\/|$)/.test(pathname);
     return ['www.google.com', 'google.com', 'www.google.co.jp', 'www.google.co.kr'].includes(hostname) && /^\/maps(?:\/|$)/.test(pathname);
   } catch { return false; }
+}
+
+export function parseGoogleMapsShare(value: string) {
+  const match = value.trim().match(/^(?:(.*?)\s+)?(https:\/\/\S+)$/s);
+  if (!match || !isGoogleMapsLink(match[2])) return;
+  const [, title, url] = match;
+  const parsed = new URL(url);
+  const placeSegment = parsed.pathname.match(/^\/maps\/place\/([^/]+)/)?.[1];
+  let place = '';
+  try { if (placeSegment) place = decodeURIComponent(placeSegment.replace(/\+/g, ' ')); } catch { /* Keep the link if its name cannot be decoded. */ }
+  const placePoint = parseCoordinates(place);
+  const point = placePoint ?? parseCoordinates(parsed.searchParams.get('query') ?? '');
+  const name = (title || (placePoint ? '' : place)).trim().replace(/\s+/g, ' ').slice(0, 150);
+  return { url, name, point };
 }

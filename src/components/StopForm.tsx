@@ -1,11 +1,11 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
 import { Search, MapPin, Check } from 'lucide-react';
 import { categories, type Place, type Stop, type SavedPlace } from '../types';
 import { uid } from '../data';
 import { searchPlaces, type SearchResult } from '../services/search';
 import { hasCoordinates, parseCoordinates, type GeoPoint, type MapView } from '../services/geo';
 import { resolveSearchQuery } from '../services/searchQuery';
-import { isGoogleMapsLink, MAX_MAP_LINK_LENGTH } from '../services/googleMapsLink';
+import { isGoogleMapsLink, MAX_MAP_LINK_LENGTH, parseGoogleMapsShare } from '../services/googleMapsLink';
 import { TravelMap } from './TravelMap';
 import { Modal } from './Modal';
 
@@ -20,6 +20,9 @@ export function StopForm(props: Props) {
   const [place, setPlace] = useState<Place>(stop ?? { name: '', address: '' });
   const [mapUrl, setMapUrl] = useState(stop?.mapUrl ?? '');
   const [mapUrlError, setMapUrlError] = useState('');
+  const autoPlaceName = useRef('');
+  const autoPlacePoint = useRef<GeoPoint | undefined>(undefined);
+  const mapLinkEdited = useRef(false);
   const [anchor] = useState(() => stop && hasCoordinates(stop) ? { lat: stop.lat, lng: stop.lng } : searchCenter);
   const [view, setView] = useState<MapView>();
   const [scope, setScope] = useState(anchor ? 'nearby' : 'global');
@@ -46,8 +49,29 @@ export function StopForm(props: Props) {
     } catch (error) { setSearchFailed(true); setMessage((error as Error).message); } finally { setBusy(false); }
   }
   function pick(p: Place) {
+    autoPlaceName.current = '';
+    autoPlacePoint.current = undefined;
     setPlace({ name: p.name, address: p.address, lat: p.lat, lng: p.lng });
     setMessage('위치를 선택했어요. 아래에서 장소 이름과 주소를 확인한 뒤 저장하세요.');
+  }
+  function updateMapLink(value: string) {
+    mapLinkEdited.current = false;
+    const share = parseGoogleMapsShare(value);
+    setMapUrl(share?.url ?? value);
+    setMapUrlError('');
+    if (!share) return;
+    const nextName = !place.name.trim() || place.name === autoPlaceName.current ? share.name : place.name;
+    if (nextName !== place.name) autoPlaceName.current = nextName;
+    const previousPoint = autoPlacePoint.current;
+    const canFillPoint = !hasCoordinates(place) || (previousPoint?.lat === place.lat && previousPoint?.lng === place.lng);
+    if (canFillPoint) autoPlacePoint.current = share.point;
+    setPlace({ ...place, name: nextName, ...(canFillPoint ? { lat: share.point?.lat, lng: share.point?.lng } : {}) });
+  }
+  function pasteMapLink(event: ClipboardEvent<HTMLInputElement>) {
+    const value = event.clipboardData.getData('text');
+    if (!parseGoogleMapsShare(value)) return;
+    event.preventDefault();
+    updateMapLink(value);
   }
   function applyCoordinates(event: FormEvent) {
     event.preventDefault();
@@ -92,9 +116,10 @@ export function StopForm(props: Props) {
       {(searched || searchFailed) && <div className="search-alternatives"><p>원하는 장소가 없나요? Google 지도에서 위치를 확인한 뒤 돌아와 지도를 누르거나 좌표를 입력하세요.</p><a className="text-button" href={`https://www.google.com/maps/search/?${new URLSearchParams({ api: '1', query: [query.trim(), area.trim() || (scope !== 'global' ? region : '')].filter(Boolean).join(' ') })}`} target="_blank" rel="noopener noreferrer">Google 지도에서 검색</a></div>}
       <details className="search-alternatives"><summary>위도·경도로 위치 지정</summary><form className="form" onSubmit={applyCoordinates}><label>위도, 경도<input value={coordinateText} onChange={e => { setCoordinateText(e.target.value); setCoordinateError(''); }} placeholder="35.4585, 133.3578" maxLength={80}/></label>{coordinateError && <p className="error" role="alert">{coordinateError}</p>}<button className="secondary" disabled={!coordinateText.trim()}>지도에 표시</button></form></details>
       <form className="form" onSubmit={save}>
-        <label>장소 이름<input required value={place.name} maxLength={150} pattern=".*\S.*" onChange={e => setPlace({ ...place, name: e.target.value })}/></label>
+        <label>장소 이름<input required value={place.name} maxLength={150} pattern=".*\S.*" onChange={e => { autoPlaceName.current = ''; setPlace({ ...place, name: e.target.value }); }}/></label>
         <label>주소<input value={place.address} maxLength={500} onChange={e => setPlace({ ...place, address: e.target.value })}/></label>
-        <label>Google 지도 공유 링크 (선택)<input type="url" autoComplete="off" value={mapUrl} maxLength={MAX_MAP_LINK_LENGTH} onChange={e => { setMapUrl(e.target.value); setMapUrlError(''); }} placeholder="https://maps.app.goo.gl/…"/><small className="muted">Google 지도에서 장소를 열고 공유 링크를 복사해 붙여넣으세요. 좌표 없이도 링크를 저장할 수 있어요.</small></label>
+        <label>Google 지도 공유 링크 (선택)<input type="url" autoComplete="off" value={mapUrl} maxLength={MAX_MAP_LINK_LENGTH} onChange={e => { mapLinkEdited.current = true; setMapUrl(e.target.value); setMapUrlError(''); }} onBlur={() => { if (mapLinkEdited.current) updateMapLink(mapUrl); }} onPaste={pasteMapLink} placeholder="https://maps.app.goo.gl/…"/><small className="muted">Google 지도에서 장소를 열고 브라우저 주소나 공유 텍스트를 붙여넣으면, 포함된 장소 이름을 채울 수 있어요.</small></label>
+        {!place.name.trim() && isGoogleMapsLink(mapUrl) && <p className="muted">이 링크에는 장소 이름이 없어요. 이름을 직접 입력하거나 <a href={mapUrl} target="_blank" rel="noopener noreferrer">브라우저에서 링크를 열어</a> 주소창의 전체 주소를 복사해 보세요.</p>}
         {mapUrlError && <p className="error" role="alert">{mapUrlError}</p>}
         <div className="coordinate-info">{place.lat !== undefined ? <><span>위도 {place.lat.toFixed(6)} · 경도 {place.lng!.toFixed(6)}</span><button type="button" className="text-button" onClick={() => setPlace({ name: place.name, address: place.address })}>위치 제거</button></> : '위치 없이도 일정을 저장할 수 있어요.'}</div>
         {!savedMode && <div className="form-row"><label>날짜<select value={day} onChange={e => setDay(e.target.value)}>{dates.map((d, i) => <option key={d} value={d}>{i + 1}일차 · {d.slice(5)}</option>)}</select></label><label>시간 (선택)<input type="time" value={time} onChange={e => setTime(e.target.value)}/></label></div>}
