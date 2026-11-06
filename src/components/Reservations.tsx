@@ -4,7 +4,7 @@ import { uid } from '../data';
 import { isReservation, isReservationUrl, reservationLimits } from '../services/reservations';
 import { flightDate, flightNumber, type FlightLookupErrorReason, type FlightSchedule } from '../services/flightLookup';
 import { mapsLinkResolverUrl } from '../services/resolveGoogleMapsLink';
-import type { Reservation } from '../types';
+import type { FlightDirection, Reservation } from '../types';
 import { Modal } from './Modal';
 
 function displayDateTime(value: string) {
@@ -18,7 +18,7 @@ export function Reservations({ items, onAdd, onEdit, onDelete }: {
     <div className="reservations-heading"><h2>예약 정보</h2><button className="primary" onClick={onAdd}><Plus size={17}/>예약 추가</button></div>
     {items.length ? <ul className="reservation-list">{items.map(item => <li className="reservation-card" key={item.id}>
       <div className="reservation-card-title">
-        <span className="reservation-kind">{item.kind === 'flight' ? <><Plane size={15}/>항공편</> : <><BedDouble size={15}/>숙소</>}</span>
+        <span className="reservation-kind">{item.kind === 'flight' ? <><Plane size={15}/>{item.direction === 'outbound' ? '출국편' : item.direction === 'return' ? '복귀편' : '항공편'}</> : <><BedDouble size={15}/>숙소</>}</span>
         <h3>{item.name}</h3>
       </div>
       <dl className="reservation-details">
@@ -26,6 +26,7 @@ export function Reservations({ items, onAdd, onEdit, onDelete }: {
           {item.departure && <div><dt>출발 시간</dt><dd>{displayDateTime(item.departure)}</dd></div>}
           {item.departureAirport && <div><dt>출발 공항</dt><dd>{item.departureAirport}</dd></div>}
           {item.arrivalAirport && <div><dt>도착 공항</dt><dd>{item.arrivalAirport}</dd></div>}
+          {item.arrival && <div><dt>도착 시간</dt><dd>{displayDateTime(item.arrival)}</dd></div>}
         </>}
         {item.kind === 'stay' && <>
           {item.checkIn && <div><dt>체크인</dt><dd>{displayDateTime(item.checkIn)}</dd></div>}
@@ -43,14 +44,16 @@ export function Reservations({ items, onAdd, onEdit, onDelete }: {
   </section>;
 }
 
-export function ReservationForm({ item, startDate, onClose, onSave, busy, status }: {
-  item?: Reservation; startDate: string; onClose: () => void; onSave: (value: Reservation) => void; busy?: boolean; status?: string;
+export function ReservationForm({ item, startDate, endDate, onClose, onSave, busy, status }: {
+  item?: Reservation; startDate: string; endDate: string; onClose: () => void; onSave: (value: Reservation) => void; busy?: boolean; status?: string;
 }) {
   const [kind, setKind] = useState<Reservation['kind']>(item?.kind ?? 'flight');
   const [name, setName] = useState(item?.name ?? '');
   const [reference, setReference] = useState(item?.reference ?? '');
   const [url, setUrl] = useState(item?.url ?? '');
+  const [direction, setDirection] = useState<FlightDirection>(item?.kind === 'flight' ? item.direction ?? 'outbound' : 'outbound');
   const [departure, setDeparture] = useState(item?.kind === 'flight' ? item.departure ?? '' : '');
+  const [arrival, setArrival] = useState(item?.kind === 'flight' ? item.arrival ?? '' : '');
   const [departureAirport, setDepartureAirport] = useState(item?.kind === 'flight' ? item.departureAirport ?? '' : '');
   const [arrivalAirport, setArrivalAirport] = useState(item?.kind === 'flight' ? item.arrivalAirport ?? '' : '');
   const [lookupDate, setLookupDate] = useState(departure.slice(0, 10) || startDate);
@@ -73,7 +76,7 @@ export function ReservationForm({ item, startDate, onClose, onSave, busy, status
     setDepartureAirport(flight.departureAirport);
     setArrivalAirport(flight.arrivalAirport);
     setFlights([]);
-    setLookupMessage('출발 시간과 공항을 채웠어요. 예약 안내와 비교한 뒤 저장하세요.');
+    setLookupMessage('출발 시간과 공항을 채웠어요. 도착 시간은 예약 안내를 보고 입력해 주세요.');
   }
 
   async function findFlight() {
@@ -122,18 +125,21 @@ export function ReservationForm({ item, startDate, onClose, onSave, busy, status
     const details = { id: item?.id ?? uid(), name: name.trim(), reference: reference.trim() || undefined, url: url.trim() || undefined };
     if (details.url && !isReservationUrl(details.url)) return setError('https://로 시작하는 예약 확인 링크를 입력해 주세요.');
     if (kind === 'stay' && checkIn && checkOut && checkOut < checkIn) return setError('체크아웃은 체크인보다 빠를 수 없어요.');
-    const reservation: Reservation = kind === 'flight' ? { ...details, kind, departure: departure || undefined, departureAirport: departureAirport.trim() || undefined, arrivalAirport: arrivalAirport.trim() || undefined }
+    const reservation: Reservation = kind === 'flight' ? { ...details, kind, direction, departure: departure || undefined, arrival: arrival || undefined, departureAirport: departureAirport.trim() || undefined, arrivalAirport: arrivalAirport.trim() || undefined }
       : { ...details, kind, checkIn: checkIn || undefined, checkOut: checkOut || undefined, address: address.trim() || undefined };
     if (!isReservation(reservation)) return setError('예약 이름과 날짜·시간을 확인해 주세요.');
     onSave(reservation);
   }
+
+  const eventDate = (direction === 'outbound' ? arrival : departure).slice(0, 10);
 
   return <Modal title={item ? '예약 수정' : '예약 추가'} onClose={onClose} busy={busy} status={status}>
     <form className="form" onSubmit={save} onChange={() => setError('')}>
       <label>예약 종류<select disabled={lookingUp} value={kind} onChange={event => setKind(event.target.value === 'stay' ? 'stay' : 'flight')}><option value="flight">항공편</option><option value="stay">숙소</option></select></label>
       <label>{kind === 'flight' ? '항공편명' : '숙소 이름'}<input required disabled={lookingUp} value={name} maxLength={reservationLimits.name} onChange={event => { setName(event.target.value); setFlights([]); setLookupMessage(''); }} placeholder={kind === 'flight' ? '예: RS471' : '예: 카스이테이'}/></label>
       {kind === 'flight' ? <>
-        {mapsLinkResolverUrl && <div className="flight-lookup">
+        <label>여행 방향<select disabled={lookingUp} value={direction} onChange={event => setDirection(event.target.value === 'return' ? 'return' : 'outbound')}><option value="outbound">출국편 · 여행지로 가는 편</option><option value="return">복귀편 · 여행지에서 떠나는 편</option></select></label>
+        {mapsLinkResolverUrl && direction === 'outbound' && <div className="flight-lookup">
           <label>조회할 출발 날짜<input type="date" value={lookupDate} disabled={lookingUp} onChange={event => { setLookupDate(event.target.value); setFlights([]); setLookupMessage(''); }}/></label>
           <button type="button" className="secondary" disabled={lookingUp || busy} onClick={() => void findFlight()}>인천 출발편 조회</button>
           {lookupMessage && <p role="status">{lookupMessage}</p>}
@@ -142,6 +148,8 @@ export function ReservationForm({ item, startDate, onClose, onSave, busy, status
         <label>출발 날짜와 시간 (선택)<input type="datetime-local" disabled={lookingUp} value={departure} onChange={event => setDeparture(event.target.value)}/></label>
         <label>출발 공항 (선택)<input disabled={lookingUp} value={departureAirport} maxLength={reservationLimits.airport} onChange={event => setDepartureAirport(event.target.value)}/></label>
         <label>도착 공항 (선택)<input disabled={lookingUp} value={arrivalAirport} maxLength={reservationLimits.airport} onChange={event => setArrivalAirport(event.target.value)}/></label>
+        <label>도착 날짜와 시간 (선택)<input type="datetime-local" disabled={lookingUp} value={arrival} onChange={event => setArrival(event.target.value)}/></label>
+        <p className="muted">{eventDate && (eventDate < startDate || eventDate > endDate) ? '여행 기간 밖의 날짜예요. 예약은 저장되고 공항 일정은 추가되지 않아요.' : direction === 'outbound' ? '도착 공항과 도착 시간을 입력하면 여행 일정에 자동으로 추가돼요.' : '출발 공항과 출발 시간을 입력하면 여행 일정에 자동으로 추가돼요.'}</p>
       </> : <>
         <label>체크인 날짜와 시간 (선택)<input type="datetime-local" value={checkIn} onChange={event => setCheckIn(event.target.value)}/></label>
         <label>체크아웃 날짜와 시간 (선택)<input type="datetime-local" min={checkIn || undefined} value={checkOut} onChange={event => setCheckOut(event.target.value)}/></label>

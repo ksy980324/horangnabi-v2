@@ -110,7 +110,7 @@ export function StopForm(props: Props) {
     if (link && !isGoogleMapsLink(link)) { setMapUrlError('Google 지도에서 공유 → 링크 복사로 복사한 주소를 붙여넣어 주세요.'); return; }
     const next = { name: place.name.trim(), address: place.address, lat: place.lat, lng: place.lng, mapUrl: link || undefined, photoUrl: stop?.photoUrl, id: stop?.id ?? uid(), category, memo };
     if (props.mode === 'saved') props.onSave(next);
-    else props.onSave({ ...next, date: day, time });
+    else props.onSave({ ...next, date: day, time, flightReservationId: props.stop?.flightReservationId });
   }
   return <Modal title={savedMode ? (stop ? '후보 장소 수정' : '후보 장소 추가') : (stop ? '일정 수정' : '새 일정 추가')} onClose={onClose} busy={props.busy} status={props.status}>
     <div className="stop-editor">
