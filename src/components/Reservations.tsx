@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { BedDouble, ExternalLink, Pencil, Plane, Plus, Ticket, Trash2 } from 'lucide-react';
 import { uid } from '../data';
 import { isReservation, isReservationUrl, reservationLimits } from '../services/reservations';
-import { flightDate, flightNumber, type FlightSchedule } from '../services/flightLookup';
+import { flightDate, flightNumber, type FlightLookupErrorReason, type FlightSchedule } from '../services/flightLookup';
 import { mapsLinkResolverUrl } from '../services/resolveGoogleMapsLink';
 import type { Reservation } from '../types';
 import { Modal } from './Modal';
@@ -82,7 +82,7 @@ export function ReservationForm({ item, startDate, onClose, onSave, busy, status
     if (!number || !flightDate(lookupDate)) { setLookupMessage('항공편명과 출발 날짜를 확인해 주세요.'); return; }
     const controller = new AbortController();
     flightRequest.current = controller;
-    const timeout = window.setTimeout(() => controller.abort(), 8000);
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
     setLookingUp(true);
     setFlights([]);
     setLookupMessage('인천공항의 예정 운항편을 조회하고 있어요.');
@@ -90,9 +90,18 @@ export function ReservationForm({ item, startDate, onClose, onSave, busy, status
       const endpoint = new URL('/flight', mapsLinkResolverUrl);
       endpoint.search = new URLSearchParams({ number, date: lookupDate }).toString();
       const response = await fetch(endpoint, { signal: controller.signal });
-      if (!response.ok) throw new Error(response.status === 503 ? '인천공항 조회 서비스가 아직 연결되지 않았어요.' : '항공편을 조회하지 못했어요. 직접 입력할 수도 있어요.');
-      const result = await response.json() as { flights?: FlightSchedule[] };
+      const result = await response.json() as { flights?: FlightSchedule[]; reason?: FlightLookupErrorReason; providerCode?: string };
       if (flightRequest.current !== controller) return;
+      if (!response.ok) {
+        const messages: Record<FlightLookupErrorReason, string> = {
+          authorization: '공공데이터포털에서 이 API의 활용 승인이 완료됐는지와 Worker에 등록한 인증키를 확인해 주세요.',
+          quota: '인천공항 조회의 일일 한도에 도달했어요. 직접 입력할 수 있어요.',
+          timeout: '인천공항에서 응답이 늦어요. 잠시 후 다시 시도하거나 직접 입력해 주세요.',
+          upstream: '인천공항 조회 서비스에서 정상 응답을 받지 못했어요. 직접 입력할 수 있어요.',
+        };
+        const message = response.status === 503 ? '인천공항 조회 서비스가 아직 연결되지 않았어요.' : messages[result.reason ?? 'upstream'];
+        throw new Error(`${message}${result.providerCode ? ` (공공데이터 코드 ${result.providerCode})` : ''}`);
+      }
       if (!Array.isArray(result.flights)) throw new Error('항공편 조회 응답을 읽지 못했어요.');
       if (result.flights.length === 1) applyFlight(result.flights[0]);
       else if (result.flights.length) { setFlights(result.flights); setLookupMessage('해당하는 운항편을 선택하세요.'); }
@@ -120,7 +129,7 @@ export function ReservationForm({ item, startDate, onClose, onSave, busy, status
   return <Modal title={item ? '예약 수정' : '예약 추가'} onClose={onClose} busy={busy} status={status}>
     <form className="form" onSubmit={save} onChange={() => setError('')}>
       <label>예약 종류<select disabled={lookingUp} value={kind} onChange={event => setKind(event.target.value === 'stay' ? 'stay' : 'flight')}><option value="flight">항공편</option><option value="stay">숙소</option></select></label>
-      <label>{kind === 'flight' ? '항공편명' : '숙소 이름'}<input required disabled={lookingUp} value={name} maxLength={reservationLimits.name} onChange={event => { setName(event.target.value); setFlights([]); setLookupMessage(''); }} placeholder={kind === 'flight' ? '예: RS745' : '예: 카스이테이'}/></label>
+      <label>{kind === 'flight' ? '항공편명' : '숙소 이름'}<input required disabled={lookingUp} value={name} maxLength={reservationLimits.name} onChange={event => { setName(event.target.value); setFlights([]); setLookupMessage(''); }} placeholder={kind === 'flight' ? '예: RS471' : '예: 카스이테이'}/></label>
       {kind === 'flight' ? <>
         {mapsLinkResolverUrl && <div className="flight-lookup">
           <label>조회할 출발 날짜<input type="date" value={lookupDate} disabled={lookingUp} onChange={event => { setLookupDate(event.target.value); setFlights([]); setLookupMessage(''); }}/></label>

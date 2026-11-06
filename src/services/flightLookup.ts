@@ -1,4 +1,5 @@
 export type FlightSchedule = { departure: string; departureAirport: string; arrivalAirport: string };
+export type FlightLookupErrorReason = 'authorization' | 'quota' | 'timeout' | 'upstream';
 
 export function flightNumber(value: string) {
   const normalized = value.toUpperCase().replace(/\s+/g, '');

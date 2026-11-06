@@ -1,11 +1,33 @@
-import { flightDate, flightNumber, type FlightSchedule } from '../../src/services/flightLookup.ts';
+import { flightDate, flightNumber, type FlightLookupErrorReason, type FlightSchedule } from '../../src/services/flightLookup.ts';
 
 const source = 'https://apis.data.go.kr/B551177/statusOfSPaxFlt4TripPlatform/getSPaxFlt4TripPlatformDepartures';
 const weekdays = ['ynSun', 'ynMon', 'ynTue', 'ynWed', 'ynThu', 'ynFri', 'ynSat'];
 const schedules = new Map<string, { expires: number; response: Promise<FlightSchedule[]> }>();
 
 type ScheduleBody = { items?: Record<string, unknown>[] | { item?: Record<string, unknown> | Record<string, unknown>[] } };
-type ScheduleResponse = { response?: { header?: { resultCode?: string | number }; body?: ScheduleBody } };
+type ScheduleResponse = {
+  response?: { header?: { resultCode?: string | number }; body?: ScheduleBody };
+  OpenAPI_ServiceResponse?: { cmmMsgHeader?: { returnReasonCode?: string | number } };
+};
+
+export class IncheonLookupError extends Error {
+  constructor(readonly reason: FlightLookupErrorReason, readonly providerCode?: string) { super(reason); }
+}
+
+async function readScheduleResponse(upstream: Response): Promise<ScheduleResponse> {
+  const body = await upstream.text();
+  let payload: ScheduleResponse | undefined;
+  try { payload = JSON.parse(body) as ScheduleResponse; } catch { /* Gateway errors can also be XML. */ }
+  const code = String(payload?.OpenAPI_ServiceResponse?.cmmMsgHeader?.returnReasonCode
+    ?? payload?.response?.header?.resultCode
+    ?? body.match(/<(?:returnReasonCode|resultCode)>\s*(\d{1,2})\s*<\//)?.[1] ?? '');
+  if (/^0?3$/.test(code)) return { response: { header: { resultCode: '03' } } };
+  const providerCode = /^\d{1,2}$/.test(code) ? code : undefined;
+  if (code === '22' || upstream.status === 429) throw new IncheonLookupError('quota', providerCode);
+  if (['20', '30', '31', '32'].includes(code) || upstream.status === 401 || upstream.status === 403) throw new IncheonLookupError('authorization', providerCode);
+  if (!upstream.ok || !payload || !/^0+$/.test(code)) throw new IncheonLookupError('upstream', providerCode);
+  return payload;
+}
 
 export function incheonDepartures(payload: ScheduleResponse, number: string, date: string): FlightSchedule[] {
   const requestedDay = flightDate(date);
@@ -40,10 +62,13 @@ export function lookupIncheonDepartures(number: string, date: string, serviceKey
   if (existing && existing.expires > Date.now()) return existing.response;
   const url = new URL(source);
   url.search = new URLSearchParams({ serviceKey, pageNo: '1', numOfRows: '100', type: 'json', flightId: number }).toString();
-  const response = fetch(url, { redirect: 'error', signal: AbortSignal.timeout(6000) }).then(async upstream => {
-    if (!upstream.ok) throw new Error('Incheon schedule request failed');
-    return incheonDepartures(await upstream.json() as ScheduleResponse, number, date);
-  }).catch((error: unknown) => { schedules.delete(cacheKey); throw error; });
+  const signal = AbortSignal.timeout(10000);
+  const response = fetch(url, { redirect: 'error', signal }).then(async upstream => {
+    return incheonDepartures(await readScheduleResponse(upstream), number, date);
+  }).catch((error: unknown) => {
+    schedules.delete(cacheKey);
+    throw signal.aborted ? new IncheonLookupError('timeout') : error;
+  });
   if (schedules.size >= 100) schedules.delete(schedules.keys().next().value!);
   schedules.set(cacheKey, { response, expires: Date.now() + 600_000 });
   return response;

@@ -33,3 +33,13 @@ test('the worker calls only the documented departure endpoint and keeps the serv
   assert.deepEqual(await response.json(), { flights: [expected] });
   assert.equal(fetch.mock.callCount(), 1);
 });
+
+test('the worker reports a gateway authentication error without exposing the upstream message', async context => {
+  context.mock.method(globalThis, 'fetch', async () => Response.json({
+    OpenAPI_ServiceResponse: { cmmMsgHeader: { returnReasonCode: '20', errMsg: 'SERVICE_KEY_IS_NULL' } },
+  }, { status: 401 }));
+  const request = new Request('https://example.workers.dev/flight?number=RS471&date=2026-11-21', { headers: { Origin: 'https://ksy980324.github.io' } });
+  const response = await worker.fetch(request, { INCHEON_FLIGHT_SERVICE_KEY: 'mock' });
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { reason: 'authorization', providerCode: '20' });
+});

@@ -1,6 +1,6 @@
 import { isGoogleMapsLink, isShortGoogleMapsLink } from '../../src/services/googleMapsLink.ts';
 import { flightDate, flightNumber } from '../../src/services/flightLookup.ts';
-import { lookupIncheonDepartures } from './incheonFlights.ts';
+import { IncheonLookupError, lookupIncheonDepartures } from './incheonFlights.ts';
 
 const allowedOrigins = new Set(['https://ksy980324.github.io', 'http://localhost:5173', 'http://127.0.0.1:5173']);
 
@@ -19,7 +19,10 @@ export default {
       const serviceKey = env?.INCHEON_FLIGHT_SERVICE_KEY?.trim();
       if (!serviceKey) return reply({}, 503);
       try { return reply({ flights: await lookupIncheonDepartures(number, date, serviceKey) }); }
-      catch { return reply({}, 502); }
+      catch (error) {
+        if (error instanceof IncheonLookupError) return reply({ reason: error.reason, providerCode: error.providerCode }, 502);
+        return reply({ reason: 'upstream' }, 502);
+      }
     }
     if (endpoint.pathname !== '/resolve') return reply({}, 404);
     let target = endpoint.searchParams.get('url');
