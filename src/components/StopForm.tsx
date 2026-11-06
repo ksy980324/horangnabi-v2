@@ -3,7 +3,7 @@ import { Search, MapPin, Check } from 'lucide-react';
 import { categories, type Place, type Stop, type SavedPlace } from '../types';
 import { uid } from '../data';
 import { searchPlaces, type SearchResult } from '../services/search';
-import { hasCoordinates, type GeoPoint, type MapView } from '../services/geo';
+import { hasCoordinates, parseCoordinates, type GeoPoint, type MapView } from '../services/geo';
 import { resolveSearchQuery } from '../services/searchQuery';
 import { TravelMap } from './TravelMap';
 import { Modal } from './Modal';
@@ -23,24 +23,35 @@ export function StopForm(props: Props) {
   const [radius, setRadius] = useState(50), [area, setArea] = useState('');
   const [query, setQuery] = useState(''), [results, setResults] = useState<SearchResult[]>([]), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const [searched, setSearched] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
+  const [addressResults, setAddressResults] = useState(false);
+  const [coordinateText, setCoordinateText] = useState('');
+  const [coordinateError, setCoordinateError] = useState('');
   const [sort, setSort] = useState('relevance');
   const [time, setTime] = useState(props.mode === 'saved' ? '' : props.stop?.time ?? ''), [category, setCategory] = useState<Stop['category']>(stop?.category ?? '관광'), [memo, setMemo] = useState(stop?.memo ?? ''), [day, setDay] = useState(props.mode === 'saved' ? date : props.stop?.date ?? date);
   const points = useMemo(() => [{ ...place, id: 'picked', number: 1 }], [place]);
   const sortedResults = useMemo(() => sort === 'distance' ? [...results].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)) : results, [results, sort]);
   const searchQuery = useMemo(() => resolveSearchQuery(query), [query]);
-  function resetResults() { setResults([]); setSearched(false); setMessage(''); }
-  async function search(e: Pick<FormEvent, 'preventDefault'>, requestedScope = scope) {
-    e.preventDefault(); setBusy(true); setMessage(''); setResults([]); setSearched(false);
+  function resetResults() { setResults([]); setSearched(false); setSearchFailed(false); setAddressResults(false); setMessage(''); }
+  async function search(e: Pick<FormEvent, 'preventDefault'>, requestedScope = scope, addressOnly = false) {
+    e.preventDefault(); setBusy(true); resetResults();
     try {
-      const options = { area, ...(requestedScope === 'nearby' && anchor ? { center: anchor, radiusKm: radius } : requestedScope === 'map' && view ? { center: view.center, bounds: view.bounds } : {}) };
-      const data = await searchPlaces(query, options);
-      setResults(data); setSearched(true);
-      setMessage(data.length ? `${data.length}개의 장소를 찾았어요. 주소와 지점을 확인하고 선택하세요.` : '이 조건에서 결과가 없어요. 반경을 넓히거나 전체 지역으로 바꾸고, 영문·현지어 이름이나 상세 주소로 검색해 보세요.');
-    } catch (error) { setMessage((error as Error).message); } finally { setBusy(false); }
+      const options = { area: addressOnly ? undefined : area, ...(requestedScope === 'nearby' && anchor ? { center: anchor, radiusKm: radius } : requestedScope === 'map' && view ? { center: view.center, bounds: view.bounds } : { center: anchor }) };
+      const data = await searchPlaces(addressOnly ? area : query, options);
+      setResults(data); setSearched(true); setAddressResults(addressOnly);
+      setMessage(data.length ? (addressOnly ? '주소로 찾은 위치예요. 지도에서 건물이나 입구를 확인해 주세요.' : `${data.length}개의 장소를 찾았어요. 주소와 지점을 확인하고 선택하세요.`) : '이 조건에서 결과가 없어요. 다른 이름이나 상세 주소로 검색해 보세요.');
+    } catch (error) { setSearchFailed(true); setMessage((error as Error).message); } finally { setBusy(false); }
   }
   function pick(p: Place) {
     setPlace({ name: p.name, address: p.address, lat: p.lat, lng: p.lng });
     setMessage('위치를 선택했어요. 아래에서 장소 이름과 주소를 확인한 뒤 저장하세요.');
+  }
+  function applyCoordinates(event: FormEvent) {
+    event.preventDefault();
+    const point = parseCoordinates(coordinateText);
+    if (!point) { setCoordinateError('위도, 경도 순서로 입력해 주세요. 예: 35.4585, 133.3578'); return; }
+    setCoordinateError('');
+    pick({ name: place.name || query.trim().slice(0, 150), address: place.address, ...point });
   }
   function save(event: FormEvent) {
     event.preventDefault();
@@ -66,13 +77,15 @@ export function StopForm(props: Props) {
       <p className="search-credit">장소 검색: Photon · © OpenStreetMap contributors</p>
       <p role="status" className="hint">{message}</p>
       {results.some(result => !result.nameLocalized) && <p className="hint">한국어 이름이 없는 일부 장소는 원문으로 표시됩니다.</p>}
-      {searched && !results.length && scope !== 'global' && <button type="button" className="secondary search-widen" disabled={busy} onClick={e => { setScope('global'); void search(e, 'global'); }}>범위 제한 없이 다시 검색</button>}
+      {searched && !results.length && scope !== 'global' && <button type="button" className="secondary search-widen" disabled={busy} onClick={e => { setScope('global'); void search(e, 'global', addressResults); }}>범위 제한 없이 다시 검색</button>}
+      {searched && !addressResults && area.trim().length >= 2 && <button type="button" className="secondary search-widen" disabled={busy} onClick={e => void search(e, scope, true)}>장소 이름 빼고 주소로 검색</button>}
       {results.length > 0 && <div className="result-toolbar"><strong>검색 결과 {results.length}개</strong><label>정렬<select aria-label="검색 결과 정렬" value={sort} onChange={e => setSort(e.target.value)}><option value="relevance">관련도순</option><option value="distance" disabled={!results.some(p => p.distanceKm !== undefined)}>가까운순</option></select></label></div>}
       {results.length > 0 && <ul className="search-results detailed-results" aria-label="장소 검색 결과">{sortedResults.map(p => {
-        const chosen = place.lat === p.lat && place.lng === p.lng && place.name === p.name;
-        return <li key={p.resultId}><button className={chosen ? 'chosen' : ''} aria-pressed={chosen} onClick={() => pick(p)}><MapPin size={18}/><span><strong>{p.name}</strong>{p.originalName && <small className="result-original-name">{p.originalName}</small>}<small className="result-primary-address">{p.address || '주소 정보가 없어 지도 위치를 확인해 주세요.'}</small>{p.originalAddress && <small className="result-original-address">{p.originalAddress}</small>}<span className="result-meta"><span>{p.typeLabel}</span>{p.distanceKm !== undefined && <span>기준점에서 직선 {p.distanceKm < 1 ? `${Math.round(p.distanceKm * 1000)}m` : `${p.distanceKm.toFixed(1)}km`}</span>}</span></span>{chosen && <Check size={17}/>}</button></li>;
+        const chosen = place.lat === p.lat && place.lng === p.lng && (addressResults || place.name === p.name);
+        return <li key={p.resultId}><button className={chosen ? 'chosen' : ''} aria-pressed={chosen} onClick={() => pick(addressResults ? { ...p, name: query.trim().slice(0, 150), address: p.address || area.trim() } : p)}><MapPin size={18}/><span><strong>{p.name}</strong>{p.originalName && <small className="result-original-name">{p.originalName}</small>}<small className="result-primary-address">{p.address || '주소 정보가 없어 지도 위치를 확인해 주세요.'}</small>{p.originalAddress && <small className="result-original-address">{p.originalAddress}</small>}<span className="result-meta"><span>{p.typeLabel}</span>{p.distanceKm !== undefined && <span>기준점에서 직선 {p.distanceKm < 1 ? `${Math.round(p.distanceKm * 1000)}m` : `${p.distanceKm.toFixed(1)}km`}</span>}</span></span>{chosen && <Check size={17}/>}</button></li>;
       })}</ul>}
-      {searched && <p className="hint">원하는 지점이 없나요? 검색 결과의 정확도는 지도 데이터에 따라 달라요. 지도를 직접 눌러 위치를 정할 수도 있어요.</p>}
+      {(searched || searchFailed) && <div className="search-alternatives"><p>원하는 장소가 없나요? Google 지도에서 위치를 확인한 뒤 돌아와 지도를 누르거나 좌표를 입력하세요.</p><a className="text-button" href={`https://www.google.com/maps/search/?${new URLSearchParams({ api: '1', query: [query.trim(), area.trim() || (scope !== 'global' ? region : '')].filter(Boolean).join(' ') })}`} target="_blank" rel="noopener noreferrer">Google 지도에서 검색</a></div>}
+      <details className="search-alternatives"><summary>위도·경도로 위치 지정</summary><form className="form" onSubmit={applyCoordinates}><label>위도, 경도<input value={coordinateText} onChange={e => { setCoordinateText(e.target.value); setCoordinateError(''); }} placeholder="35.4585, 133.3578" maxLength={80}/></label>{coordinateError && <p className="error" role="alert">{coordinateError}</p>}<button className="secondary" disabled={!coordinateText.trim()}>지도에 표시</button></form></details>
       <form className="form" onSubmit={save}>
         <label>장소 이름<input required value={place.name} maxLength={150} pattern=".*\S.*" onChange={e => setPlace({ ...place, name: e.target.value })}/></label>
         <label>주소<input value={place.address} maxLength={500} onChange={e => setPlace({ ...place, address: e.target.value })}/></label>

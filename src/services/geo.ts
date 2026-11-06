@@ -5,6 +5,12 @@ export type MapView = { center: GeoPoint; bounds: GeoBounds };
 export function hasCoordinates<T extends Pick<Place, 'lat' | 'lng'>>(place: T): place is T & GeoPoint {
   return Number.isFinite(place.lat) && Number.isFinite(place.lng) && Math.abs(place.lat!) <= 90 && Math.abs(place.lng!) <= 180;
 }
+export function parseCoordinates(value: string): GeoPoint | undefined {
+  const match = value.trim().match(/^([+-]?\d+(?:\.\d+)?)\s*[,，]\s*([+-]?\d+(?:\.\d+)?)$/);
+  if (!match) return;
+  const point = { lat: Number(match[1]), lng: Number(match[2]) };
+  if (hasCoordinates(point)) return point;
+}
 export function itineraryPath(points: Pick<Place, 'lat' | 'lng'>[]): GeoPoint[] {
   return points.filter(hasCoordinates).map(({ lat, lng }) => ({ lat, lng }));
 }

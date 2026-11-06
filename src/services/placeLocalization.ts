@@ -1,4 +1,4 @@
-import { koreanAirportName } from './searchQuery.ts';
+import { koreanAirportName, koreanPlaceAlias } from './searchQuery.ts';
 
 const key = (value: string) => value.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().replace(/[\s·・()（）.,'-]/g, '');
 const nameEntries: [string[], string][] = [
@@ -61,7 +61,7 @@ export function localizePlace(properties: Record<string, unknown>, fallback: str
   const rawName = textProperty(properties, 'name') || textProperty(properties, 'street') || fallback;
   const name = koreanProperty(properties, ['name:ko', 'name_ko'])
     || (textProperty(properties, 'osm_value') === 'aerodrome' ? koreanAirportName(rawName) : undefined)
-    || names.get(key(rawName)) || addresses.get(key(rawName)) || rawName;
+    || koreanPlaceAlias(rawName) || names.get(key(rawName)) || addresses.get(key(rawName)) || rawName;
   const parts = ['country', 'state', 'county', 'city', 'district', 'locality', 'street', 'housenumber', 'postcode'].map(field => textProperty(properties, field)).filter(Boolean);
   const rawAddress = [...new Set(parts)].join(' ');
   const address = koreanProperty(properties, ['address:ko', 'address_ko']) || [...new Set(parts.map(part => addresses.get(key(part)) || part))].join(' ');

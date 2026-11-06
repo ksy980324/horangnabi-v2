@@ -12,6 +12,19 @@ const compact = (text: string) => text.normalize('NFKC').replace(/[\s()（）·-
 export function koreanAirportName(name: string): string | undefined {
   return airports.find(entry => [...entry.names, entry.query].some(alias => compact(alias) === compact(name)))?.label;
 }
+const placeAliases = [
+  {
+    query: '皆生温泉 華水亭', label: '카스이테이',
+    names: ['카스이테이', '카수이테이', '카스이테이 료칸', '카스이테이 숙소', '요나고 카스이테이', '요나고 카수이테이', '카이케 온천 카스이테이', '가이케 온천 카스이테이', 'Kasuitei', 'Kaike Onsen Kasuitei', '華水亭', '皆生グランドホテル 華水亭'],
+  },
+];
+function findPlaceAlias(name: string) {
+  const normalized = compact(name);
+  return placeAliases.find(entry => [entry.query, ...entry.names].some(alias => compact(alias) === normalized));
+}
+export function koreanPlaceAlias(name: string): string | undefined {
+  return findPlaceAlias(name)?.label;
+}
 const travelTerms: [string, string][] = [
   ['오사카성', 'Osaka Castle'], ['도톤보리', 'Dotonbori'], ['구로몬시장', 'Kuromon Market'],
   ['오사카', 'Osaka'], ['도쿄', 'Tokyo'], ['교토', 'Kyoto'], ['후쿠오카', 'Fukuoka'], ['삿포로', 'Sapporo'], ['나고야', 'Nagoya'], ['난바', 'Namba'], ['우메다', 'Umeda'],
@@ -22,16 +35,17 @@ export function resolveSearchQuery(input: string) {
   const original = input.trim().replace(/\s+/g, ' ');
   const name = compact(original);
   const airport = airports.find(entry => [...entry.names, entry.query].some(alias => compact(alias) === name));
+  const place = findPlaceAlias(original);
   const exactTerm = travelTerms.find(([term]) => compact(term) === name)?.[1];
-  let text = airport?.query ?? exactTerm ?? original;
-  if (!airport && !exactTerm) for (const [term, replacement] of travelTerms) text = text.replaceAll(term, ` ${replacement} `);
+  let text = airport?.query ?? place?.query ?? exactTerm ?? original;
+  if (!airport && !place && !exactTerm) for (const [term, replacement] of travelTerms) text = text.replaceAll(term, ` ${replacement} `);
   text = text.trim().replace(/\s+/g, ' ');
   const osakaAirport = /^(오사카(국제)?공항|osaka(international)?airport)$/i.test(name);
   return {
     text,
     expanded: text !== original,
     airport: !!airport || /공항$|airport$/i.test(original),
-    label: airport?.label,
+    label: airport?.label ?? place?.label,
     alternatives: osakaAirport ? ['이타미 공항', '간사이 공항'] : [],
   };
 }

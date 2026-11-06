@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { distanceKm, insideBounds, itineraryPath, nearbyBounds } from '../src/services/geo.ts';
+import { distanceKm, insideBounds, itineraryPath, nearbyBounds, parseCoordinates } from '../src/services/geo.ts';
+
+test('pasted coordinates accept decimal degrees and reject invalid ranges and trailing data', () => {
+  assert.deepEqual(parseCoordinates(' 35.4585, 133.3578 '), { lat: 35.4585, lng: 133.3578 });
+  assert.deepEqual(parseCoordinates('-33.865，+151.209'), { lat: -33.865, lng: 151.209 });
+  for (const value of ['91, 130', '35, 181', '35, 130, 2', '35', '35, NaN', '35, 130°']) {
+    assert.equal(parseCoordinates(value), undefined);
+  }
+});
 
 test('itinerary line follows list order, skips missing coordinates and updates after reorder', () => {
   const first = { lat: 34.6873, lng: 135.5262 }, last = { lat: 34.6687, lng: 135.5013 };
