@@ -105,6 +105,7 @@ export function StopForm(props: Props) {
   }
   function save(event: FormEvent) {
     event.preventDefault();
+    if (lookupUrl) return;
     const link = mapUrl.trim();
     if (link && !isGoogleMapsLink(link)) { setMapUrlError('Google 지도에서 공유 → 링크 복사로 복사한 주소를 붙여넣어 주세요.'); return; }
     const next = { name: place.name.trim(), address: place.address, lat: place.lat, lng: place.lng, mapUrl: link || undefined, id: stop?.id ?? uid(), category, memo };
@@ -145,11 +146,11 @@ export function StopForm(props: Props) {
         {lookupUrl && <p className="muted" role="status">Google 지도 링크에서 장소를 확인하고 있어요.</p>}
         {!lookupUrl && !place.name.trim() && isGoogleMapsLink(mapUrl) && <p className="muted">이 링크에서 장소 이름을 확인하지 못했어요. 이름을 직접 입력하거나 <a href={mapUrl} target="_blank" rel="noopener noreferrer">브라우저에서 링크를 열어</a> 주소창의 전체 주소를 복사해 보세요.</p>}
         {mapUrlError && <p className="error" role="alert">{mapUrlError}</p>}
-        <div className="coordinate-info">{place.lat !== undefined ? <><span>위도 {place.lat.toFixed(6)} · 경도 {place.lng!.toFixed(6)}</span><button type="button" className="text-button" onClick={() => setPlace({ name: place.name, address: place.address })}>위치 제거</button></> : '위치 없이도 일정을 저장할 수 있어요.'}</div>
+        <div className="coordinate-info">{hasCoordinates(place) ? <><span>지도 핀 지정됨 · {place.lat.toFixed(6)}, {place.lng.toFixed(6)}</span><button type="button" className="text-button" onClick={() => setPlace({ name: place.name, address: place.address })}>위치 제거</button></> : lookupUrl ? '지도 핀을 확인하고 있어요.' : mapUrl && place.name.trim() ? '지도 핀이 없어요. 지도에서 직접 선택하거나 위도·경도를 입력할 수 있어요.' : '위치 없이도 일정을 저장할 수 있어요.'}</div>
         {!savedMode && <div className="form-row"><label>날짜<select value={day} onChange={e => setDay(e.target.value)}>{dates.map((d, i) => <option key={d} value={d}>{i + 1}일차 · {d.slice(5)}</option>)}</select></label><label>시간 (선택)<input type="time" value={time} onChange={e => setTime(e.target.value)}/></label></div>}
         <div className="form-row"><label>카테고리<select value={category} onChange={e => setCategory(e.target.value as Stop['category'])}>{categories.map(c => <option key={c}>{c}</option>)}</select></label>{!savedMode && <button type="button" className="secondary align-end" onClick={() => setTime('')}>시간 미정으로</button>}</div>
         <label>메모<textarea rows={3} maxLength={3000} value={memo} onChange={e => setMemo(e.target.value)} placeholder="함께 기억하고 싶은 것들을 적어 보세요."/></label>
-        <button className="primary" type="submit" disabled={props.busy}>{stop ? '변경 저장' : savedMode ? '보관함에 저장' : '일정에 추가'}</button>
+        <button className="primary" type="submit" disabled={props.busy || !!lookupUrl}>{lookupUrl ? '지도 위치 확인 중' : stop ? '변경 저장' : savedMode ? '보관함에 저장' : '일정에 추가'}</button>
       </form>
     </div>
   </Modal>;

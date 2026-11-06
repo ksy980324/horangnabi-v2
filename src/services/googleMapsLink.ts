@@ -31,9 +31,9 @@ export function parseGoogleMapsShare(value: string) {
   try { if (placeSegment) place = decodeURIComponent(placeSegment.replace(/\+/g, ' ')); } catch { /* Keep the link if its name cannot be decoded. */ }
   const query = parsed.searchParams.get('query') || parsed.searchParams.get('q') || '';
   const location = place || query;
-  const explicitPoint = parseCoordinates(location);
-  const pin = parsed.pathname.match(/^\/maps\/place\/.*\/data=.*!8m2!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)(?:!|$)/);
-  const point = explicitPoint ?? (pin ? parseCoordinates(`${pin[1]},${pin[2]}`) : undefined);
-  const name = (title || (explicitPoint ? '' : location)).trim().replace(/\s+/g, ' ').slice(0, 150);
+  const locationPoint = parseCoordinates(location);
+  const pin = parsed.pathname.replace(/%21/gi, '!').match(/^\/maps\/place\/.*\/data=.*!8m2!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)(?:!|$)/);
+  const point = locationPoint ?? (pin ? parseCoordinates(`${pin[1]},${pin[2]}`) : undefined) ?? parseCoordinates(query);
+  const name = (title || (locationPoint ? '' : location)).trim().replace(/\s+/g, ' ').slice(0, 150);
   return { url, name, point };
 }
