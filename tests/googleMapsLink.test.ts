@@ -47,6 +47,15 @@ test('Google Maps share links accept short and full URLs and reject lookalikes',
   }
 });
 
+test('mobile shares accept trailing text, query parameters and alternate explicit pin layouts', () => {
+  const link = 'https://maps.app.goo.gl/abc?g_st=ic';
+  assert.equal(parseGoogleMapsShare(`${link}\n우동 마르코`)?.name, '우동 마르코');
+  assert.equal(parseGoogleMapsShare(`우동 마르코\n${link}\nGoogle Maps에서 보기`)?.url, link);
+  assert.equal(parseGoogleMapsShare(`[우동 마르코](${link})`)?.name, '우동 마르코');
+  assert.deepEqual(parseGoogleMapsShare('https://www.google.com/maps/place/Hotel/data=!3m1!3d35.4!4d133.3')?.point, { lat: 35.4, lng: 133.3 });
+  assert.equal(parseGoogleMapsShare('https://www.google.com/maps/place/Hotel/@35.4,133.3,17z')?.point, undefined);
+});
+
 test('trip backups preserve optional map links and reject unsupported URLs', () => {
   const db = sampleDatabase();
   const stop = db.trips[0].stops[0];

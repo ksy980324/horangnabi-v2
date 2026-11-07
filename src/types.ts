@@ -11,7 +11,7 @@ type ReservationDetails = { id: string; name: string; reference?: string; url?: 
 export type FlightDirection = 'outbound' | 'return';
 export type Reservation = ReservationDetails & (
   { kind: 'flight'; direction?: FlightDirection; departure?: string; arrival?: string; departureAirport?: string; arrivalAirport?: string } |
-  { kind: 'stay'; checkIn?: string; checkOut?: string; address?: string }
+  { kind: 'stay'; checkIn?: string; checkOut?: string; address?: string; lat?: number; lng?: number; mapUrl?: string }
 );
 export type Trip = { id: string; name: string; region: string; destination?: TripDestination; start: string; end: string; stops: Stop[]; savedPlaces?: SavedPlace[]; packingItems?: PackingItem[]; reservations?: Reservation[]; expenses?: Expense[] };
 export type Database = { version: 1; trips: Trip[] };

@@ -1,6 +1,7 @@
 import type { Reservation, StayEvent, Stop, Trip } from '../types';
 import { airportCoordinates } from './airportCoordinates.ts';
 import { hasCoordinates } from './geo.ts';
+import { isGoogleMapsLink } from './googleMapsLink.ts';
 
 export const reservationLimits = { name: 150, reference: 100, url: 2048, address: 500, airport: 150 };
 
@@ -32,6 +33,8 @@ export function isReservation(value: unknown): value is Reservation {
     && optionalDateTime(item.departure) && optionalDateTime(item.arrival)
     && optionalText(item.departureAirport, reservationLimits.airport) && optionalText(item.arrivalAirport, reservationLimits.airport);
   return item.kind === 'stay' && optionalText(item.address, reservationLimits.address)
+    && (item.lat === undefined && item.lng === undefined || hasCoordinates(item))
+    && (item.mapUrl === undefined || isGoogleMapsLink(item.mapUrl))
     && optionalDateTime(item.checkIn) && optionalDateTime(item.checkOut)
     && (!item.checkIn || !item.checkOut || item.checkIn <= item.checkOut);
 }
@@ -101,14 +104,14 @@ function syncStayStops(trip: Trip, reservation: StayReservation, previous?: Rese
   function add(event: StayEvent, date: string, time: string, first: boolean) {
     if (date < trip.start || date > trip.end) return;
     const old = linked.find(stop => stop.stayReservation?.event === event && (event !== 'start' || stop.date === date));
-    const position = sameStay && old && hasCoordinates(old) ? old : pinned;
+    const position = hasCoordinates(reservation) ? reservation : sameStay && old && hasCoordinates(old) ? old : pinned;
     const label = { checkIn: '체크인', start: '출발', checkOut: '체크아웃' }[event];
     const stop: Stop = {
       id: old?.id ?? reservationStopId(trip, `stay:${reservation.id}:${event}${event === 'start' ? `:${date}` : ''}`),
       name: `${reservation.name.slice(0, 145)} ${label}`, address: reservation.address ?? (sameStay ? old?.address : undefined) ?? '',
       date, time, category: '숙소', memo: old?.memo ?? '', stayReservation: { id: reservation.id, event },
       lat: position?.lat, lng: position?.lng,
-      mapUrl: sameStay ? old?.mapUrl : undefined, photoUrl: sameStay ? old?.photoUrl : undefined,
+      mapUrl: reservation.mapUrl ?? (sameStay ? old?.mapUrl : undefined), photoUrl: sameStay ? old?.photoUrl : undefined,
     };
     const before = stops.findIndex(item => item.date === date && (first || !!item.time && item.time > time));
     if (before >= 0) stops.splice(before, 0, stop);

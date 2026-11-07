@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { BedDouble, ExternalLink, Pencil, Plane, Plus, Ticket, Trash2 } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { BedDouble, Pencil, Plane, Plus, Ticket, Trash2 } from 'lucide-react';
 import { uid } from '../data';
-import { isReservation, isReservationUrl, reservationLimits } from '../services/reservations';
+import { isReservation, reservationLimits } from '../services/reservations';
 import { flightDate, flightNumber, type FlightLookupErrorReason, type FlightSchedule } from '../services/flightLookup';
 import { mapsLinkResolverUrl } from '../services/resolveGoogleMapsLink';
-import type { FlightDirection, Reservation, Stop } from '../types';
+import type { FlightDirection, Place, Reservation, Stop } from '../types';
+import { DateTimeField } from './DateTimeField';
+import { PlacePicker } from './PlacePicker';
+import { hasCoordinates, type GeoPoint } from '../services/geo';
 import { Modal } from './Modal';
 
 function displayDateTime(value: string) {
@@ -40,7 +43,7 @@ export function Reservations({ items, stops, onAdd, onEdit, onDelete, onOpenStop
           {item.checkOut && <div><dt>체크아웃</dt><dd>{displayDateTime(item.checkOut)}</dd></div>}
           {item.address && <div><dt>주소</dt><dd>{item.address}</dd></div>}
         </>}
-        {item.reference && <div><dt>예약번호</dt><dd>{item.reference}</dd></div>}
+
       </dl>
       {item.kind === 'flight' && <p className="reservation-itinerary-status">{stop
         ? `${displayDateTime(`${stop.date}T${stop.time}`)} · ${stop.name} 일정에 연결됨`
@@ -50,7 +53,6 @@ export function Reservations({ items, stops, onAdd, onEdit, onDelete, onOpenStop
         {checkOutStop && <button className="secondary" onClick={() => onOpenStop(checkOutStop)}>체크아웃 일정 보기</button>}
         {morningStop && <button className="secondary" onClick={() => onOpenStop(morningStop)}>숙소 일정 보기</button>}
         {stop && <button className="secondary" onClick={() => onOpenStop(stop)}>일정에서 보기</button>}
-        {isReservationUrl(item.url) && <a className="secondary reservation-link" href={item.url} target="_blank" rel="noopener noreferrer">예약 확인<ExternalLink size={14} aria-hidden="true"/></a>}
         <button className="text-button" onClick={() => onEdit(item.id)}><Pencil size={14}/>수정</button>
         <button className="text-button danger" onClick={() => { if (confirm(`‘${item.name}’ 예약 정보를 삭제할까요?`)) onDelete(item.id); }}><Trash2 size={14}/>삭제</button>
       </div>
@@ -58,13 +60,16 @@ export function Reservations({ items, stops, onAdd, onEdit, onDelete, onOpenStop
   </section>;
 }
 
-export function ReservationForm({ item, startDate, endDate, onClose, onSave, busy, status }: {
-  item?: Reservation; startDate: string; endDate: string; onClose: () => void; onSave: (value: Reservation) => void; busy?: boolean; status?: string;
+export function ReservationForm({ item, startDate, endDate, region, searchCenter, onClose, onSave, busy, status }: {
+  item?: Reservation; startDate: string; endDate: string; region: string; searchCenter?: GeoPoint; onClose: () => void; onSave: (value: Reservation) => void; busy?: boolean; status?: string;
 }) {
   const [kind, setKind] = useState<Reservation['kind']>(item?.kind ?? 'flight');
-  const [name, setName] = useState(item?.name ?? '');
-  const [reference, setReference] = useState(item?.reference ?? '');
-  const [url, setUrl] = useState(item?.url ?? '');
+  const [name, setName] = useState(item?.kind === 'flight' ? item.name.toUpperCase() : item?.name ?? '');
+  const formId = useId();
+  const [resolving, setResolving] = useState(false);
+  const [stayPlace, setStayPlace] = useState<Place>(item?.kind === 'stay'
+    ? { name: item.name, address: item.address ?? '', lat: item.lat, lng: item.lng, mapUrl: item.mapUrl }
+    : { name: '', address: '' });
   const [direction, setDirection] = useState<FlightDirection>(item?.kind === 'flight' ? item.direction ?? 'outbound' : 'outbound');
   const [departure, setDeparture] = useState(item?.kind === 'flight' ? item.departure ?? '' : '');
   const [arrival, setArrival] = useState(item?.kind === 'flight' ? item.arrival ?? '' : '');
@@ -77,7 +82,7 @@ export function ReservationForm({ item, startDate, endDate, onClose, onSave, bus
   const flightRequest = useRef<AbortController | undefined>(undefined);
   const [checkIn, setCheckIn] = useState(item?.kind === 'stay' ? item.checkIn ?? '' : '');
   const [checkOut, setCheckOut] = useState(item?.kind === 'stay' ? item.checkOut ?? '' : '');
-  const [address, setAddress] = useState(item?.kind === 'stay' ? item.address ?? '' : '');
+
   const [error, setError] = useState('');
   useEffect(() => () => {
     const controller = flightRequest.current;
@@ -135,12 +140,11 @@ export function ReservationForm({ item, startDate, endDate, onClose, onSave, bus
 
   function save(event: FormEvent) {
     event.preventDefault();
-    if (busy || lookingUp) return;
-    const details = { id: item?.id ?? uid(), name: name.trim(), reference: reference.trim() || undefined, url: url.trim() || undefined };
-    if (details.url && !isReservationUrl(details.url)) return setError('https://로 시작하는 예약 확인 링크를 입력해 주세요.');
+    if (busy || lookingUp || resolving) return;
+    const details = { id: item?.id ?? uid(), name: kind === 'flight' ? name.trim().toUpperCase() : stayPlace.name.trim(), reference: item?.reference, url: item?.url };
     if (kind === 'stay' && checkIn && checkOut && checkOut < checkIn) return setError('체크아웃은 체크인보다 빠를 수 없어요.');
     const reservation: Reservation = kind === 'flight' ? { ...details, kind, direction, departure: departure || undefined, arrival: arrival || undefined, departureAirport: departureAirport.trim() || undefined, arrivalAirport: arrivalAirport.trim() || undefined }
-      : { ...details, kind, checkIn: checkIn || undefined, checkOut: checkOut || undefined, address: address.trim() || undefined };
+      : { ...details, kind, checkIn: checkIn || undefined, checkOut: checkOut || undefined, address: stayPlace.address.trim() || undefined, lat: stayPlace.lat, lng: stayPlace.lng, mapUrl: stayPlace.mapUrl };
     if (!isReservation(reservation)) return setError('예약 이름과 날짜·시간을 확인해 주세요.');
     onSave(reservation);
   }
@@ -148,9 +152,13 @@ export function ReservationForm({ item, startDate, endDate, onClose, onSave, bus
   const eventDate = (direction === 'outbound' ? arrival : departure).slice(0, 10);
 
   return <Modal title={item ? '예약 수정' : '예약 추가'} onClose={onClose} busy={busy} status={status}>
-    <form className="form" onSubmit={save} onChange={() => setError('')}>
-      <label>예약 종류<select disabled={lookingUp} value={kind} onChange={event => setKind(event.target.value === 'stay' ? 'stay' : 'flight')}><option value="flight">항공편</option><option value="stay">숙소</option></select></label>
-      <label>{kind === 'flight' ? '항공편명' : '숙소 이름'}<input required disabled={lookingUp} value={name} maxLength={reservationLimits.name} onChange={event => { setName(event.target.value); setFlights([]); setLookupMessage(''); }} placeholder={kind === 'flight' ? '예: RS471' : '예: 카스이테이'}/></label>
+    <fieldset className="reservation-editor editor-fields" disabled={busy || lookingUp}>
+      <div className="form">
+        <label>예약 종류<select disabled={lookingUp || busy} value={kind} onChange={event => setKind(event.target.value === 'stay' ? 'stay' : 'flight')}><option value="flight">항공편</option><option value="stay">숙소</option></select></label>
+        {kind === 'flight' && <label>항공편명<input form={formId} required autoCapitalize="characters" autoCorrect="off" disabled={lookingUp || busy} value={name} maxLength={reservationLimits.name} onChange={event => { setName(event.target.value.toUpperCase()); setFlights([]); setLookupMessage(''); }} placeholder="예: RS417"/></label>}
+      </div>
+      {kind === 'stay' && <PlacePicker value={stayPlace} onChange={setStayPlace} region={region} searchCenter={searchCenter} onResolving={setResolving}/>}
+      <form id={formId} className="form" onSubmit={save} onChange={() => setError('')}>
       {kind === 'flight' ? <>
         <label>여행 방향<select disabled={lookingUp} value={direction} onChange={event => setDirection(event.target.value === 'return' ? 'return' : 'outbound')}><option value="outbound">출국편 · 여행지로 가는 편</option><option value="return">복귀편 · 여행지에서 떠나는 편</option></select></label>
         {mapsLinkResolverUrl && direction === 'outbound' && <div className="flight-lookup">
@@ -159,22 +167,23 @@ export function ReservationForm({ item, startDate, endDate, onClose, onSave, bus
           {lookupMessage && <p role="status">{lookupMessage}</p>}
           {flights.map(flight => <button type="button" className="text-button" key={`${flight.departure}:${flight.arrivalAirport}`} onClick={() => applyFlight(flight)}>{displayDateTime(flight.departure)} · {flight.arrivalAirport}</button>)}
         </div>}
-        <label>출발 날짜와 시간 (선택)<input type="datetime-local" disabled={lookingUp} value={departure} onChange={event => setDeparture(event.target.value)}/></label>
+        <DateTimeField label="출발" disabled={lookingUp} value={departure} onChange={setDeparture}/>
         <label>출발 공항 (선택)<input disabled={lookingUp} value={departureAirport} maxLength={reservationLimits.airport} onChange={event => setDepartureAirport(event.target.value)}/></label>
         <label>도착 공항 (선택)<input disabled={lookingUp} value={arrivalAirport} maxLength={reservationLimits.airport} onChange={event => setArrivalAirport(event.target.value)}/></label>
-        <label>도착 날짜와 시간 (선택)<input type="datetime-local" disabled={lookingUp} value={arrival} onChange={event => setArrival(event.target.value)}/></label>
+        <DateTimeField label="도착" disabled={lookingUp} value={arrival} onChange={setArrival}/>
         <p className="muted">{eventDate && (eventDate < startDate || eventDate > endDate) ? '여행 기간 밖의 날짜예요. 예약은 저장되고 공항 일정은 추가되지 않아요.' : direction === 'outbound' ? '도착 공항과 도착 시간을 입력하면 여행 일정에 자동으로 추가돼요.' : '출발 공항과 출발 시간을 입력하면 여행 일정에 자동으로 추가돼요.'}</p>
       </> : <>
-        <label>체크인 날짜와 시간 (선택)<input type="datetime-local" value={checkIn} onChange={event => setCheckIn(event.target.value)}/></label>
-        <label>체크아웃 날짜와 시간 (선택)<input type="datetime-local" min={checkIn || undefined} value={checkOut} onChange={event => setCheckOut(event.target.value)}/></label>
-        <label>숙소 주소 (선택)<input value={address} maxLength={reservationLimits.address} onChange={event => setAddress(event.target.value)}/></label>
+        <label>숙소 이름<input required value={stayPlace.name} maxLength={reservationLimits.name} onChange={event => setStayPlace({ ...stayPlace, name: event.target.value })}/></label>
+        <DateTimeField label="체크인" required value={checkIn} onChange={setCheckIn}/>
+        <DateTimeField label="체크아웃" required min={checkIn || undefined} value={checkOut} onChange={setCheckOut}/>
+        <label>숙소 주소<input value={stayPlace.address} maxLength={reservationLimits.address} onChange={event => setStayPlace({ ...stayPlace, address: event.target.value })}/></label>
+        <p className="muted">{hasCoordinates(stayPlace) ? '숙소 위치가 연결됐어요. 체크인·체크아웃 일정에도 같은 지도 핀이 표시돼요.' : '검색 결과를 선택하거나 Google 지도 공유 링크를 붙여넣으면 숙소 위치가 연결돼요.'}</p>
         <p className="muted">여행 기간 안의 체크인·체크아웃이 일정에 추가돼요. 연박 중에는 매일 첫 일정이 숙소 출발이에요.</p>
       </>}
       <p className="muted">예약 안내에 적힌 현지 날짜와 시간을 입력하세요.</p>
-      <label>예약번호 (선택)<input value={reference} maxLength={reservationLimits.reference} onChange={event => setReference(event.target.value)}/></label>
-      <label>예약 확인 링크 (선택)<input type="url" value={url} maxLength={reservationLimits.url} onChange={event => setUrl(event.target.value)} placeholder="https://…"/></label>
       {error && <p className="error" role="alert">{error}</p>}
-      <button className="primary" type="submit" disabled={busy || lookingUp}>예약 저장</button>
+      <button className="primary" type="submit" disabled={busy || lookingUp || resolving}>예약 저장</button>
     </form>
+    </fieldset>
   </Modal>;
 }

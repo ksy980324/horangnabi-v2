@@ -1,4 +1,4 @@
-import { hasCoordinates, parseCoordinates } from './geo.ts';
+import { hasCoordinates, parseCoordinates, type GeoPoint } from './geo.ts';
 import type { Place } from '../types';
 
 export const MAX_MAP_LINK_LENGTH = 2048;
@@ -17,7 +17,7 @@ export function isGoogleMapsLink(value: unknown): value is string {
     if (protocol !== 'https:' || username || password || port) return false;
     if (hostname === 'maps.app.goo.gl') return pathname.length > 1;
     if (hostname === 'goo.gl') return pathname.startsWith('/maps/');
-    if (hostname === 'maps.google.com') return pathname === '/' || /^\/maps(?:\/|$)/.test(pathname);
+    if (['maps.google.com', 'maps.google.co.jp', 'maps.google.co.kr'].includes(hostname)) return pathname === '/' || /^\/maps(?:\/|$)/.test(pathname);
     return ['www.google.com', 'google.com', 'www.google.co.jp', 'www.google.co.kr'].includes(hostname) && /^\/maps(?:\/|$)/.test(pathname);
   } catch { return false; }
 }
@@ -29,10 +29,14 @@ export function isShortGoogleMapsLink(value: unknown): boolean {
     || hostname === 'goo.gl' && /^\/maps\/[a-z0-9]+\/?$/i.test(pathname);
 }
 
-export function parseGoogleMapsShare(value: string) {
-  const match = value.trim().match(/^(?:(.*?)\s+)?(https:\/\/\S+)$/s);
-  if (!match || !isGoogleMapsLink(match[2])) return;
-  const [, title, url] = match;
+export function parseGoogleMapsShare(value: string): { url: string; name: string; point?: GeoPoint; address?: string } | undefined {
+  const links = [...value.matchAll(/https:\/\/[^\s<>"\u200b]+/g)];
+  const match = links.find(item => isGoogleMapsLink(item[0].replace(/[)\]}>.,。]+$/, '')));
+  if (!match) return;
+  const url = match[0].replace(/[)\]}>.,。]+$/, '');
+  const before = value.slice(0, match.index).trim().replace(/\[([^\]]+)\]\($/, '$1');
+  const after = value.slice((match.index ?? 0) + match[0].length).trim();
+  const title = (before || after).split('\n')[0].replace(/(?:\s*[-–—|·]\s*)?Google (?:Maps|지도).*$/i, '').trim();
   const parsed = new URL(url);
   const placeSegment = parsed.pathname.match(/^\/maps\/(?:place|search)\/([^/@][^/]*)/)?.[1];
   let place = '';
@@ -40,7 +44,7 @@ export function parseGoogleMapsShare(value: string) {
   const query = parsed.searchParams.get('query') || parsed.searchParams.get('q') || '';
   const location = place || query;
   const locationPoint = parseCoordinates(location);
-  const pin = parsed.pathname.replace(/%21/gi, '!').match(/^\/maps\/place\/.*\/data=.*!8m2!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)(?:!|$)/);
+  const pin = /^\/maps\/place\//.test(parsed.pathname) && parsed.pathname.replace(/%21/gi, '!').match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)(?:!|$)/);
   const point = locationPoint ?? (pin ? parseCoordinates(`${pin[1]},${pin[2]}`) : undefined) ?? parseCoordinates(query);
   const name = (title || (locationPoint ? '' : location)).trim().replace(/\s+/g, ' ').slice(0, 150);
   return { url, name, point };

@@ -51,6 +51,22 @@ test('stay skips dates outside the trip and supports a checkout on the check-in 
   assert.deepEqual(sameDay.stops.filter(stop => stop.date === '2026-11-22').map(stop => stop.time), ['08:00', '10:00', '17:00']);
 });
 
+test('a searched lodging position is copied to every linked stop and updates without duplicates', () => {
+  const trip = sampleDatabase().trips[0];
+  const booking: Reservation = { id: 'hotel', kind: 'stay', name: 'Hotel', address: 'Yonago', lat: 35.4, lng: 133.3,
+    mapUrl: 'https://maps.app.goo.gl/abc', checkIn: '2026-11-21T15:00', checkOut: '2026-11-24T10:00' };
+  const saved = saveReservation(trip, booking);
+  const linked = saved.stops.filter(stop => stop.stayReservation?.id === booking.id);
+  assert.equal(linked.length, 4);
+  assert.ok(linked.every(stop => stop.lat === 35.4 && stop.lng === 133.3 && stop.mapUrl === booking.mapUrl));
+  const moved = saveReservation(saved, { ...booking, lat: 35.5 });
+  assert.ok(moved.stops.filter(stop => stop.stayReservation?.id === booking.id).every(stop => stop.lat === 35.5));
+  const restored = parseDatabase(JSON.parse(JSON.stringify({ version: 1, trips: [moved] }))).trips[0];
+  assert.deepEqual(restored.reservations, JSON.parse(JSON.stringify(moved.reservations)));
+  assert.deepEqual(removeReservation(restored, booking.id).stops, trip.stops);
+  assert.throws(() => parseDatabase({ version: 1, trips: [{ ...trip, reservations: [{ ...booking, lat: 91 }] }] }));
+});
+
 test('reservation backups reject duplicate IDs, invalid dates, and unsafe links', () => {
   const db = sampleDatabase();
   const item = { id: 'flight', kind: 'flight', name: 'RS745' };

@@ -315,3 +315,21 @@
 .flight-lookup input { min-width: 0; }
 .flight-lookup button { min-height: 40px; }
 .flight-lookup p { color: #526970; font-size: 12px; line-height: 1.55; }
+.editor-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.place-picker > .map-wrap { height: 240px; margin: 14px 20px 0; border-radius: 12px; overflow: hidden; }
+.picked-place { display: flex; align-items: center; gap: 10px; margin: 12px 20px; padding: 12px; border: 1px solid #b9dcd2; border-radius: 10px; background: #f3faf7; }
+.picked-place > svg { color: var(--teal); flex-shrink: 0; }
+.picked-place > div { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.picked-place strong { font-size: 13px; }
+.picked-place p { margin-top: 4px; color: #526970; font-size: 11px; }
+.picked-place button { flex-shrink: 0; min-height: 44px; }
+.search-controls { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 4px; }
+.date-time-field { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: #f8fbfa; }
+.date-time-field legend { padding: 0 5px; font-size: 13px; font-weight: 600; }
+.date-time-inputs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.date-time-inputs label > span { display: flex; align-items: center; gap: 5px; color: #526970; font-size: 11px; }
+.date-time-inputs input { min-width: 0; max-width: 100%; min-height: 46px; padding: 10px; font-variant-numeric: tabular-nums; }
+input:is([type="date"], [type="time"]) { min-height: 44px; }
+@media (max-width: 380px) {
+  .date-time-inputs { grid-template-columns: minmax(0, 1fr); }
+}

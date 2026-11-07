@@ -1,4 +1,5 @@
-import { isGoogleMapsLink, isShortGoogleMapsLink } from '../../src/services/googleMapsLink.ts';
+import { isGoogleMapsLink, isShortGoogleMapsLink, parseGoogleMapsShare } from '../../src/services/googleMapsLink.ts';
+import { parseGoogleMapsPage } from './googleMapsPage.ts';
 import { flightDate, flightNumber } from '../../src/services/flightLookup.ts';
 import { IncheonLookupError, lookupIncheonDepartures } from './incheonFlights.ts';
 
@@ -26,18 +27,39 @@ export default {
     }
     if (endpoint.pathname !== '/resolve') return reply({}, 404);
     let target = endpoint.searchParams.get('url');
-    if (!target || !isShortGoogleMapsLink(target)) return reply({}, 400);
+    if (!target || !isGoogleMapsLink(target)) return reply({}, 400);
 
     try {
-      const signal = AbortSignal.timeout(5000);
-      for (let hop = 0; hop < 3; hop++) {
-        const response: Response = await fetch(target, { redirect: 'manual', signal });
-        await response.body?.cancel();
+      const signal = AbortSignal.timeout(12000);
+      for (let hop = 0; hop < 6; hop++) {
+        const share = parseGoogleMapsShare(target);
+        if (share?.name && share.point) return reply({ url: target });
+        const response: Response = await fetch(target, { redirect: 'manual', signal, headers: { 'Accept-Language': 'ko,en;q=0.8', 'User-Agent': 'Mozilla/5.0' } });
         const location = response.headers.get('Location');
-        if (!location || response.status < 300 || response.status >= 400) break;
+        if (!location || response.status < 300 || response.status >= 400) {
+          if (!response.ok || isShortGoogleMapsLink(target)) { await response.body?.cancel(); break; }
+          const reader = response.body?.getReader();
+          if (!reader) break;
+          const chunks: Uint8Array[] = [];
+          let length = 0;
+          while (length < 1_000_000) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            const chunk = value.subarray(0, 1_000_000 - length);
+            chunks.push(chunk);
+            length += chunk.length;
+          }
+          await reader.cancel();
+          const data = new Uint8Array(length);
+          let offset = 0;
+          for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.length; }
+          const metadata = parseGoogleMapsPage(new TextDecoder().decode(data));
+          if (share?.name || metadata.name || metadata.point) return reply({ url: target, ...metadata });
+          break;
+        }
+        await response.body?.cancel();
         const next: string = new URL(location, target).href;
         if (!isGoogleMapsLink(next)) break;
-        if (!isShortGoogleMapsLink(next)) return reply({ url: next });
         target = next;
       }
     } catch { /* An unavailable Google response falls back to manual entry. */ }
