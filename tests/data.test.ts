@@ -1,6 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { datesBetween, moveStop, parseDatabase, reorderStop, sampleDatabase } from '../src/data.ts';
+import { copyStop, datesBetween, moveStop, parseDatabase, reorderStop, sampleDatabase } from '../src/data.ts';
+
+test('copy creates independent stops, retains place details and detaches reservation links', () => {
+  const db = sampleDatabase();
+  const source = { ...db.trips[0].stops[0], flightReservationId: 'flight', stayReservation: { id: 'stay', event: 'checkIn' as const } };
+  const original = structuredClone(source);
+  const copied = copyStop(source);
+  assert.notEqual(copied.id, source.id);
+  assert.notEqual(copyStop(source).id, copied.id);
+  assert.deepEqual(copied, { ...source, id: copied.id, flightReservationId: undefined, stayReservation: undefined });
+  copied.date = datesBetween(db.trips[0].start, db.trips[0].end)[1];
+  copied.memo = 'Different memo';
+  assert.deepEqual(source, original);
+  db.trips[0].stops.push(copied);
+  const restored = parseDatabase(JSON.parse(JSON.stringify(db)));
+  assert.equal(restored.trips[0].stops.at(-1)?.id, copied.id);
+  const withoutLocation = copyStop({ ...source, lat: undefined, lng: undefined, time: '' });
+  assert.equal(withoutLocation.lat, undefined);
+  assert.equal(withoutLocation.lng, undefined);
+  assert.equal(withoutLocation.time, '');
+});
 
 test('dragging across multiple stops inserts the item without changing other days', () => {
   const trip = sampleDatabase().trips[0];

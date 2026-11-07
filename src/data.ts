@@ -1,4 +1,4 @@
-import { categories, type Database, type Trip } from './types.ts';
+import { categories, type Database, type Stop, type Trip } from './types.ts';
 import { isGoogleMapsLink } from './services/googleMapsLink.ts';
 import { isPhotoUrl } from './services/photoUrl.ts';
 import { isReservation } from './services/reservations.ts';
@@ -17,6 +17,9 @@ export function datesBetween(start: string, end: string): string[] {
   const a = Date.parse(start + 'T00:00:00Z'), b = Date.parse(end + 'T00:00:00Z');
   if (!Number.isFinite(a) || !Number.isFinite(b) || b < a || b - a > 365 * 86400000) return [];
   return Array.from({ length: Math.round((b - a) / 86400000) + 1 }, (_, i) => new Date(a + i * 86400000).toISOString().slice(0, 10));
+}
+export function copyStop(stop: Stop): Stop {
+  return { ...stop, id: uid(), flightReservationId: undefined, stayReservation: undefined };
 }
 export function moveStop(trip: Trip, date: string, id: string, direction: number): Trip {
   const stops = [...trip.stops];
