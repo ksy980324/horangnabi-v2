@@ -329,6 +329,16 @@
 .date-time-inputs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
 .date-time-inputs label > span { display: flex; align-items: center; gap: 5px; color: #526970; font-size: 11px; }
 .date-time-inputs input { min-width: 0; max-width: 100%; min-height: 46px; padding: 10px; font-variant-numeric: tabular-nums; }
+.form-control { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 12px; font-weight: 500; }
+.form-row > .form-control { flex: 1; }
+.time-picker { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.time-picker select { flex: 1; min-width: 0; min-height: 48px; padding: 10px 8px; border-radius: 10px; font-size: 16px; font-variant-numeric: tabular-nums; text-align: center; }
+.time-picker > span { color: #718382; font-size: 18px; font-weight: 600; }
+.place-search-credit { color: #718382; font-size: 10px; line-height: 1.6; text-align: center; }
+.place-search-credit a { color: inherit; }
+@media (max-width: 600px) {
+  .date-time-inputs, .schedule-time-row { display: grid; grid-template-columns: minmax(0, 1fr); }
+}
 input:is([type="date"], [type="time"]) { min-height: 44px; }
 @media (max-width: 380px) {
   .date-time-inputs { grid-template-columns: minmax(0, 1fr); }

@@ -7,6 +7,7 @@ import { mapsLinkResolverUrl } from '../services/resolveGoogleMapsLink';
 import type { FlightDirection, Place, Reservation, Stop } from '../types';
 import { DateTimeField } from './DateTimeField';
 import { PlacePicker } from './PlacePicker';
+import { PlaceSearchCredit } from './PlaceSearchCredit';
 import { hasCoordinates, type GeoPoint } from '../services/geo';
 import { Modal } from './Modal';
 
@@ -183,6 +184,7 @@ export function ReservationForm({ item, startDate, endDate, region, searchCenter
       <p className="muted">예약 안내에 적힌 현지 날짜와 시간을 입력하세요.</p>
       {error && <p className="error" role="alert">{error}</p>}
       <button className="primary" type="submit" disabled={busy || lookingUp || resolving}>예약 저장</button>
+      {kind === 'stay' && <PlaceSearchCredit/>}
     </form>
     </fieldset>
   </Modal>;
