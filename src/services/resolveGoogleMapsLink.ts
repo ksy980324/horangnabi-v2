@@ -13,7 +13,7 @@ export async function resolveGoogleMapsLink(link: string, signal: AbortSignal) {
   const { url, name, point, address } = await response.json();
   const share = typeof url === 'string' ? parseGoogleMapsShare(url) : undefined;
   if (share) {
-    if (typeof name === 'string' && !share.name) share.name = name.slice(0, 150);
+    if (typeof name === 'string' && name.trim()) share.name = name.slice(0, 150);
     if (point && hasCoordinates(point) && !share.point) share.point = point;
     if (typeof address === 'string') share.address = address.slice(0, 500);
   }

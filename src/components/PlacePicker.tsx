@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent } from 'react';
 import { Search, MapPin, Check } from 'lucide-react';
 import type { Place } from '../types';
 import { searchPlaces, type SearchResult } from '../services/search';
@@ -97,6 +97,16 @@ export function PlacePicker({ value: place, onChange: setPlace, region, searchCe
     event.preventDefault();
     updateMapLink(value);
   }
+  function changeQuery(event: ChangeEvent<HTMLInputElement>) {
+    const value = event.target.value;
+    const input = event.nativeEvent as InputEvent;
+    if (input.inputType === 'insertFromPaste' && parseGoogleMapsShare(value)) {
+      updateMapLink(value);
+      return;
+    }
+    setQuery(value);
+    resetResults();
+  }
   function applyCoordinates(event: FormEvent) {
     event.preventDefault();
     const point = parseCoordinates(coordinateText);
@@ -107,7 +117,7 @@ export function PlacePicker({ value: place, onChange: setPlace, region, searchCe
   }
   return <div className="place-picker">
       <form onSubmit={search} className="place-search">
-        <div className="search-form"><input aria-label="장소 이름 또는 Google 지도 공유 링크" disabled={busy} value={query} onChange={e => { setQuery(e.target.value); resetResults(); }} placeholder="장소 이름 또는 Google 지도 공유 링크" autoComplete="off" onPaste={pasteMapLink} maxLength={MAX_MAP_LINK_LENGTH}/><button className="primary" disabled={busy || !!lookupUrl || query.trim().length < 2 || (scope === 'map' && !view && !parseGoogleMapsShare(query))}><Search size={18}/>{lookupUrl ? '확인 중' : busy ? '검색 중' : '검색'}</button></div>
+        <div className="search-form"><input aria-label="장소 이름 또는 Google 지도 공유 링크" disabled={busy} value={query} onChange={changeQuery} placeholder="장소 이름 또는 Google 지도 공유 링크" autoComplete="off" onPaste={pasteMapLink} maxLength={MAX_MAP_LINK_LENGTH}/><button className="primary" disabled={busy || !!lookupUrl || query.trim().length < 2 || (scope === 'map' && !view && !parseGoogleMapsShare(query))}><Search size={18}/>{lookupUrl ? '확인 중' : busy ? '검색 중' : '검색'}</button></div>
       </form>
       <TravelMap points={points} selected="picked" initialCenter={anchor} onViewChange={setView} fitKey={`${place.lat},${place.lng}`} onPick={pick}/>
       {lookupUrl && <p className="hint" role="status">공유 링크에서 장소와 위치를 가져오고 있어요.</p>}

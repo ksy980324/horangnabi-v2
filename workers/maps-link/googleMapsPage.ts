@@ -1,6 +1,57 @@
 import { parseGoogleMapsShare } from '../../src/services/googleMapsLink.ts';
 import { hasCoordinates, parseCoordinates, type GeoPoint } from '../../src/services/geo.ts';
 
+export function googleMapsFeature(url: string) {
+  const feature = new URL(url).pathname.replace(/%21/gi, '!').match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/i)?.[1];
+  if (!feature) return;
+  return { id: feature.toLowerCase(), cid: BigInt(feature.split(':')[1]).toString() };
+}
+
+export async function readGoogleMapsPage(response: Response) {
+  const reader = response.body?.getReader();
+  if (!reader) return '';
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  while (length < 1_000_000) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    const chunk = value.subarray(0, 1_000_000 - length);
+    chunks.push(chunk);
+    length += chunk.length;
+  }
+  await reader.cancel();
+  const data = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { data.set(chunk, offset); offset += chunk.length; }
+  return new TextDecoder().decode(data);
+}
+
+export function parseGoogleMapsEmbed(html: string, featureId: string) {
+  const source = html.match(/\binitEmbed\((\[[\s\S]*?\])\s*\);/)?.[1];
+  if (!source) return;
+  let data: unknown;
+  try { data = JSON.parse(source); } catch { return; }
+  // Only the selected place record can supply coordinates, never the map camera.
+  function find(node: unknown, depth = 0): { name: string; address: string; point: GeoPoint } | undefined {
+    if (!Array.isArray(node) || depth > 24) return;
+    const marker = node[0];
+    if (Array.isArray(marker) && typeof marker[0] === 'string' && marker[0].toLowerCase() === featureId.toLowerCase()
+      && Array.isArray(marker[2])) {
+      const point = { lat: marker[2][0], lng: marker[2][1] };
+      if (hasCoordinates(point)) {
+        const name = typeof node[1] === 'string' ? node[1] : typeof marker[1] === 'string' ? marker[1] : '';
+        const address = Array.isArray(node[2]) ? node[2].filter(part => typeof part === 'string').join(' ') : '';
+        return { name: name.slice(0, 150), address: address.slice(0, 500), point };
+      }
+    }
+    for (const item of node) {
+      const place = find(item, depth + 1);
+      if (place) return place;
+    }
+  }
+  return find(data);
+}
+
 function decodeEntities(value: string) {
   return value.replace(/&(?:amp|quot|apos|lt|gt|#\d+|#x[0-9a-f]+);/gi, entity => {
     const names: Record<string, string> = { '&amp;': '&', '&quot;': '"', '&apos;': "'", '&lt;': '<', '&gt;': '>' };
