@@ -23,7 +23,7 @@ export default function GoogleMap({ points, selected, onSelect, onPick, fitKey, 
       instance = new api.Map(container.current, {
         center: startCenter.current ?? { lat: 34.681, lng: 135.505 }, zoom: 11, mapId,
         mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
-        clickableIcons: false, gestureHandling: 'cooperative', zoomControl: true,
+        clickableIcons: false, gestureHandling: 'greedy', zoomControl: true,
       });
       map.current = instance;
       instance.addListener('idle', () => {

@@ -37,15 +37,10 @@
 .custom-city>label{flex:1}
 .custom-city>button{flex-shrink:0;font-size:11px}
 @media(max-width:500px){.destination-picker{padding:10px}.city-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.destination-mode{align-items:flex-start}.destination-mode>span{line-height:1.8}.city-grid strong{font-size:12px}}
-.search-options{padding:12px 20px 0;display:flex;flex-direction:column;gap:12px}
-.search-options label{display:flex;flex-direction:column;gap:6px;font-size:11px;color:#6d7f85;min-width:0}
 .search-query-note{padding:8px 10px;background:#edf5f0;border-radius:7px;color:#4e7c70;overflow-wrap:anywhere}
 .search-alternatives{margin:10px 20px;display:flex;flex-wrap:wrap;gap:7px}
 .search-alternatives p{width:100%;font-size:10px;line-height:1.8;color:#7a8d89}
 .search-alternatives button{min-height:36px;padding:7px 10px;font-size:11px}
-.search-widen{margin:0 20px 12px;font-size:12px}
-.search-options input,.search-options select{font-size:12px;padding:10px}
-.search-region{display:flex;align-items:center;gap:5px;color:var(--teal);font-size:11px}
 .result-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:9px;color:#6f8b83;margin-top:7px}
 .result-toolbar{display:flex;align-items:center;justify-content:space-between;margin:10px 20px;font-size:11px;color:#6d7f85}
 .result-toolbar label{display:flex;align-items:center;gap:8px}
@@ -60,7 +55,7 @@
 .detailed-results .result-original-name{font-size:10px;font-weight:400;color:#94a09e;margin-top:2px}
 .detailed-results .result-primary-address{font-size:11px;color:#6d807c;margin-top:7px}
 .detailed-results .result-original-address{font-size:9px;color:#a0aaa7;margin-top:2px}
-@media(max-width:500px){.search-options{padding-left:16px;padding-right:16px}.search-options input,.search-options select{font-size:16px}.detailed-results button{min-height:75px}}
+@media(max-width:500px){.detailed-results button{min-height:75px}}
 .planner>.map-section{z-index:10;box-shadow:0 5px 18px #2336470a}
 .schedule .stop-card{scroll-margin-top:24px}
 @media(max-width:800px){
@@ -323,7 +318,13 @@
 .picked-place strong { font-size: 13px; }
 .picked-place p { margin-top: 4px; color: #526970; font-size: 11px; }
 .picked-place button { flex-shrink: 0; min-height: 44px; }
-.search-controls { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 4px; }
+.search-scope { margin: 12px 20px; }
+.search-scope label { display: flex; align-items: center; gap: 8px; width: fit-content; max-width: 100%; }
+.search-scope label > span { flex-shrink: 0; color: #6d7f85; font-size: 11px; }
+.search-scope select { width: 164px; min-height: 36px; padding: 6px 8px; border-radius: 8px; font-size: 13px; }
+.search-empty-actions { display: flex; gap: 8px; margin: 12px 20px; }
+.search-empty-actions > .secondary { display: inline-flex; flex: 1; min-width: 0; align-items: center; justify-content: center; min-height: 40px; padding: 8px 10px; font-size: 11px; line-height: 1.5; text-align: center; text-decoration: none; word-break: keep-all; }
+.search-empty-actions > .secondary:only-child { flex: 0 1 auto; }
 .date-time-field { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: #f8fbfa; }
 .date-time-field legend { padding: 0 5px; font-size: 13px; font-weight: 600; }
 .date-time-inputs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }

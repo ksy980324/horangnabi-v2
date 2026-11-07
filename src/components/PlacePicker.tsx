@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState, type ChangeEvent,
 import { Search, MapPin, Check } from 'lucide-react';
 import type { Place } from '../types';
 import { searchPlaces, type SearchResult } from '../services/search';
-import { hasCoordinates, parseCoordinates, type GeoPoint, type MapView } from '../services/geo';
+import { hasCoordinates, type GeoPoint, type MapView } from '../services/geo';
 import { resolveSearchQuery } from '../services/searchQuery';
 import { MAX_MAP_LINK_LENGTH, parseGoogleMapsShare } from '../services/googleMapsLink';
 import { mapsLinkResolverUrl, resolveGoogleMapsLink } from '../services/resolveGoogleMapsLink';
@@ -16,12 +16,9 @@ export function PlacePicker({ value: place, onChange: setPlace, region, searchCe
   const [anchor] = useState(() => hasCoordinates(place) ? { lat: place.lat, lng: place.lng } : searchCenter);
   const [view, setView] = useState<MapView>();
   const [scope, setScope] = useState(anchor ? 'nearby' : 'global');
-  const [radius, setRadius] = useState(50);
   const [query, setQuery] = useState(''), [results, setResults] = useState<SearchResult[]>([]), [busy, setBusy] = useState(false), [message, setMessage] = useState('');
   const [searched, setSearched] = useState(false);
   const [searchFailed, setSearchFailed] = useState(false);
-  const [coordinateText, setCoordinateText] = useState('');
-  const [coordinateError, setCoordinateError] = useState('');
   const [sort, setSort] = useState('relevance');
   const points = useMemo(() => [{ ...place, id: 'picked', number: 1 }], [place]);
   const sortedResults = useMemo(() => sort === 'distance' ? [...results].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)) : results, [results, sort]);
@@ -33,7 +30,8 @@ export function PlacePicker({ value: place, onChange: setPlace, region, searchCe
     if (busy) return;
     setBusy(true); resetResults();
     try {
-      const options = { ...(requestedScope === 'nearby' && anchor ? { center: anchor, radiusKm: radius } : requestedScope === 'map' && view ? { center: view.center, bounds: view.bounds } : { center: anchor }) };
+      const options = requestedScope === 'nearby' && anchor ? { center: anchor }
+        : requestedScope === 'map' && view ? { center: view.center, bounds: view.bounds } : {};
       const data = await searchPlaces(query, options);
       setResults(data); setSearched(true);
       setMessage(data.length ? `${data.length}개의 장소를 찾았어요. 주소와 지점을 확인하고 선택하세요.` : '이 조건에서 결과가 없어요. 다른 이름이나 상세 주소로 검색해 보세요.');
@@ -106,14 +104,6 @@ export function PlacePicker({ value: place, onChange: setPlace, region, searchCe
     setQuery(value);
     resetResults();
   }
-  function applyCoordinates(event: FormEvent) {
-    event.preventDefault();
-    const point = parseCoordinates(coordinateText);
-    if (!point) { setCoordinateError('위도, 경도 순서로 입력해 주세요. 예: 35.4585, 133.3578'); return; }
-    setCoordinateError('');
-    const share = parseGoogleMapsShare(query);
-    pick({ name: place.name || (share ? share.name || '지도에서 선택한 장소' : query.trim().slice(0, 150)), address: place.address, ...point });
-  }
   return <div className="place-picker">
       <form onSubmit={search} className="place-search">
         <div className="search-form"><input aria-label="장소 이름 또는 Google 지도 공유 링크" disabled={busy} value={query} onChange={changeQuery} placeholder="장소 이름 또는 Google 지도 공유 링크" autoComplete="off" onPaste={pasteMapLink} maxLength={MAX_MAP_LINK_LENGTH}/><button className="primary" disabled={busy || !!lookupUrl || query.trim().length < 2 || (scope === 'map' && !view && !parseGoogleMapsShare(query))}><Search size={18}/>{lookupUrl ? '확인 중' : busy ? '검색 중' : '검색'}</button></div>
@@ -126,25 +116,27 @@ export function PlacePicker({ value: place, onChange: setPlace, region, searchCe
         <button type="button" className="text-button" onClick={() => { setLookupUrl(''); setPlace({ name: '', address: '' }); setMapUrlError(''); }}>선택 해제</button>
       </div>}
       {searchQuery.expanded && <p className="hint search-query-note">{searchQuery.label ? `${searchQuery.label} · ` : ''}{searchQuery.text} 이름으로 검색합니다.</p>}
-      {searchQuery.airport && scope !== 'global' && <div className="search-alternatives"><p>다른 도시의 공항은 현재 검색 범위에서 제외될 수 있어요.</p><button type="button" className="secondary" disabled={busy} onClick={e => { setScope('global'); void search(e, 'global'); }}>공항 이름으로 전체 지역 검색</button></div>}
+      {searchQuery.airport && scope !== 'global' && <div className="search-alternatives"><p>여행지 밖의 공항은 전체 지역에서 찾아보세요.</p><button type="button" className="secondary" disabled={busy} onClick={e => { setScope('global'); void search(e, 'global'); }}>공항 이름으로 전체 지역 검색</button></div>}
       {searchQuery.alternatives.length > 0 && <div className="search-alternatives"><p>이타미와 간사이는 서로 다른 공항이에요. 원하는 공항을 선택한 뒤 검색하세요.</p>{searchQuery.alternatives.map(name => <button type="button" className="secondary" key={name} disabled={busy} onClick={() => { setQuery(name); resetResults(); }}>{name}</button>)}</div>}
 
       <p role="status" className="hint">{message}</p>
       {results.some(result => !result.nameLocalized) && <p className="hint">한국어 이름이 없는 일부 장소는 원문으로 표시됩니다.</p>}
-      {searched && !results.length && scope !== 'global' && <button type="button" className="secondary search-widen" disabled={busy} onClick={e => { setScope('global'); void search(e, 'global'); }}>범위 제한 없이 다시 검색</button>}
       {results.length > 0 && <div className="result-toolbar"><strong>검색 결과 {results.length}개</strong><label>정렬<select aria-label="검색 결과 정렬" value={sort} onChange={e => setSort(e.target.value)}><option value="relevance">관련도순</option><option value="distance" disabled={!results.some(p => p.distanceKm !== undefined)}>가까운순</option></select></label></div>}
       {results.length > 0 && <ul className="search-results detailed-results" aria-label="장소 검색 결과">{sortedResults.map(p => {
         const chosen = place.lat === p.lat && place.lng === p.lng && place.name === p.name;
         return <li key={p.resultId}><button className={chosen ? 'chosen' : ''} aria-pressed={chosen} onClick={() => pick(p)}><MapPin size={18}/><span><strong>{p.name}</strong>{p.originalName && <small className="result-original-name">{p.originalName}</small>}<small className="result-primary-address">{p.address || '주소 정보가 없어 지도 위치를 확인해 주세요.'}</small>{p.originalAddress && <small className="result-original-address">{p.originalAddress}</small>}<span className="result-meta"><span>{p.typeLabel}</span>{p.distanceKm !== undefined && <span>기준점에서 직선 {p.distanceKm < 1 ? `${Math.round(p.distanceKm * 1000)}m` : `${p.distanceKm.toFixed(1)}km`}</span>}</span></span>{chosen && <Check size={17}/>}</button></li>;
       })}</ul>}
-      <form onSubmit={search} className="place-search search-controls">
-        <div className="search-options">
-          <p className="search-region"><MapPin size={13}/>{region}</p>
-          <div className="form-row"><label>검색 범위<select aria-label="검색 범위" disabled={busy} value={scope} onChange={e => { setScope(e.target.value); resetResults(); }}><option value="nearby" disabled={!anchor}>여행 일정 주변</option><option value="map" disabled={!view}>현재 지도 안</option><option value="global">전체 지역</option></select></label>{scope === 'nearby' && <label>검색 반경<select aria-label="검색 반경" disabled={busy} value={radius} onChange={e => { setRadius(Number(e.target.value)); resetResults(); }}><option value={5}>5km 이내</option><option value={20}>20km 이내</option><option value={50}>50km 이내</option></select></label>}</div>
-        </div>
-      </form>
-      {(searched || searchFailed) && <div className="search-alternatives"><p>원하는 장소가 없나요? Google 지도에서 장소를 찾고 공유 링크를 복사해 위 검색창에 붙여넣으세요.</p><a className="text-button" href={`https://www.google.com/maps/search/?${new URLSearchParams({ api: '1', query: [query.trim(), scope !== 'global' ? region : ''].filter(Boolean).join(' ') })}`} target="_blank" rel="noopener noreferrer">Google 지도에서 검색</a></div>}
-      <details className="search-alternatives"><summary>위도·경도로 위치 지정</summary><form className="form" onSubmit={applyCoordinates}><label>위도, 경도<input value={coordinateText} onChange={e => { setCoordinateText(e.target.value); setCoordinateError(''); }} placeholder="35.4585, 133.3578" maxLength={80}/></label>{coordinateError && <p className="error" role="alert">{coordinateError}</p>}<button className="secondary" disabled={!coordinateText.trim()}>지도에 표시</button></form></details>
+      {(searched || searchFailed) && <div className="search-empty-actions">
+        {searched && !results.length && scope !== 'global' && <button type="button" className="secondary" disabled={busy} onClick={event => { setScope('global'); void search(event, 'global'); }}>범위 제한 없이 다시 검색</button>}
+        <a className="secondary" href={`https://www.google.com/maps/search/?${new URLSearchParams({ api: '1', query: [query.trim(), scope !== 'global' ? region : ''].filter(Boolean).join(' ') })}`} target="_blank" rel="noopener noreferrer">Google 지도에서 검색</a>
+      </div>}
+      <div className="search-scope">
+        <label><span>검색 범위</span><select aria-label="검색 범위" disabled={busy} value={scope} onChange={event => { setScope(event.target.value); resetResults(); }}>
+          <option value="nearby" disabled={!anchor}>여행지 주변 우선</option>
+          <option value="map" disabled={!view}>현재 지도 안</option>
+          <option value="global">전체 지역</option>
+        </select></label>
+      </div>
       {place.mapUrl && <p className="hint">Google 지도 공유 링크가 연결됐어요.</p>}
     </div>;
 }
