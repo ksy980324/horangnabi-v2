@@ -183,11 +183,6 @@
 .trip-cover-credit { margin-left: auto; color: #526970; font-size: 10px; overflow-wrap: anywhere; }
 .trip-cover-credit summary { cursor: pointer; }
 .stop-directions { margin-bottom: 10px; }
-.stop-location-review { padding: 12px; margin-bottom: 12px; border-radius: 8px; background: #f4f8f6; font-size: 12px; line-height: 1.7; user-select: text; }
-.stop-location-review strong { display: block; font-size: 11px; color: #526970; }
-.stop-location-review p, .stop-location-review a { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
-.stop-location-review strong:not(:first-child) { margin-top: 10px; }
-.stop-location-review a { color: var(--teal); }
 .stop-directions a { display: inline-flex; align-items: center; min-height: 44px; text-decoration: none; }
 .packing-shared-hint { margin: -10px 0 14px; color: #526970; font-size: 12px; }
 .packing-item-status { display: block; margin-top: 4px; color: #526970; font-size: 10px; font-weight: 400; }
