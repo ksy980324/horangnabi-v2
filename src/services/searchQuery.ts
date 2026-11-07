@@ -14,7 +14,7 @@ export function koreanAirportName(name: string): string | undefined {
 }
 const placeAliases = [
   {
-    query: '皆生温泉 華水亭', label: '카스이테이',
+    query: '皆生温泉 華水亭', label: '카스이테이', english: 'Kasuitei',
     names: ['카스이테이', '카수이테이', '카스이테이 료칸', '카스이테이 숙소', '요나고 카스이테이', '요나고 카수이테이', '카이케 온천 카스이테이', '가이케 온천 카스이테이', 'Kasuitei', 'Kaike Onsen Kasuitei', '華水亭', '皆生グランドホテル 華水亭'],
   },
 ];
@@ -24,6 +24,9 @@ function findPlaceAlias(name: string) {
 }
 export function koreanPlaceAlias(name: string): string | undefined {
   return findPlaceAlias(name)?.label;
+}
+export function englishPlaceAlias(name: string): string | undefined {
+  return findPlaceAlias(name)?.english;
 }
 const travelTerms: [string, string][] = [
   ['오사카성', 'Osaka Castle'], ['도톤보리', 'Dotonbori'], ['구로몬시장', 'Kuromon Market'],

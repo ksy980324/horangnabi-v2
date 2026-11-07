@@ -1,7 +1,8 @@
 import { useEffect, useEffectEvent, useMemo, useRef, useState, type ChangeEvent, type ClipboardEvent, type FormEvent } from 'react';
 import { Search, MapPin, Check } from 'lucide-react';
 import type { Place } from '../types';
-import { searchPlaces, type SearchResult } from '../services/search';
+import type { SearchResult } from '../services/search';
+import { searchWithEnglishFallback } from '../services/searchWithEnglishFallback';
 import { hasCoordinates, type GeoPoint, type MapView } from '../services/geo';
 import { resolveSearchQuery } from '../services/searchQuery';
 import { MAX_MAP_LINK_LENGTH, parseGoogleMapsShare } from '../services/googleMapsLink';
@@ -23,19 +24,38 @@ export function PlacePicker({ value: place, onChange: setPlace, region, searchCe
   const points = useMemo(() => [{ ...place, id: 'picked', number: 1 }], [place]);
   const sortedResults = useMemo(() => sort === 'distance' ? [...results].sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity)) : results, [results, sort]);
   const searchQuery = useMemo(() => resolveSearchQuery(query), [query]);
-  function resetResults() { setResults([]); setSearched(false); setSearchFailed(false); setMessage(''); }
+  const searchRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => { searchRequest.current?.abort(); searchRequest.current = null; }, []);
+  function resetResults() {
+    searchRequest.current?.abort();
+    searchRequest.current = null;
+    setBusy(false);
+    setResults([]); setSearched(false); setSearchFailed(false); setMessage('');
+  }
   async function search(e: Pick<FormEvent, 'preventDefault'>, requestedScope = scope) {
     e.preventDefault();
     if (parseGoogleMapsShare(query)) { updateMapLink(query); return; }
     if (busy) return;
-    setBusy(true); resetResults();
+    resetResults();
+    const request = new AbortController();
+    searchRequest.current = request;
+    setBusy(true);
     try {
       const options = requestedScope === 'nearby' && anchor ? { center: anchor }
         : requestedScope === 'map' && view ? { center: view.center, bounds: view.bounds } : {};
-      const data = await searchPlaces(query, options);
-      setResults(data); setSearched(true);
-      setMessage(data.length ? `${data.length}개의 장소를 찾았어요. 주소와 지점을 확인하고 선택하세요.` : '이 조건에서 결과가 없어요. 다른 이름이나 상세 주소로 검색해 보세요.');
-    } catch (error) { setSearchFailed(true); setMessage((error as Error).message); } finally { setBusy(false); }
+      const data = await searchWithEnglishFallback(query, { ...options, signal: request.signal }, text => {
+        if (searchRequest.current === request) setMessage(text);
+      });
+      if (searchRequest.current !== request) return;
+      setResults(data.places); setSearched(true);
+      const translated = data.translatedQuery ? `‘${data.translatedQuery}’로도 검색했어요. ` : '';
+      setMessage(data.translationUnavailable ? '한국어 검색 결과가 없고 영어 번역을 사용할 수 없어요. 잠시 후 다시 검색하거나 Google 지도에서 찾아보세요.'
+        : translated + (data.places.length ? `${data.places.length}개의 장소를 찾았어요. 주소와 지점을 확인하고 선택하세요.` : '이 조건에서 결과가 없어요. 다른 이름이나 상세 주소로 검색해 보세요.'));
+    } catch (error) {
+      if (searchRequest.current === request && !request.signal.aborted) { setSearchFailed(true); setMessage((error as Error).message); }
+    } finally {
+      if (searchRequest.current === request) { searchRequest.current = null; setBusy(false); }
+    }
   }
   function pick(p: Place) {
     setLookupUrl('');
@@ -115,7 +135,6 @@ export function PlacePicker({ value: place, onChange: setPlace, region, searchCe
         <MapPin size={18} aria-hidden="true"/><div><strong>{place.name || '지도에서 선택한 위치'}</strong><p>{place.address || (hasCoordinates(place) ? '지도 핀이 연결됐어요.' : '아직 지도 위치가 확인되지 않았어요.')}</p></div>
         <button type="button" className="text-button" onClick={() => { setLookupUrl(''); setPlace({ name: '', address: '' }); setMapUrlError(''); }}>선택 해제</button>
       </div>}
-      {searchQuery.expanded && <p className="hint search-query-note">{searchQuery.label ? `${searchQuery.label} · ` : ''}{searchQuery.text} 이름으로 검색합니다.</p>}
       {searchQuery.airport && scope !== 'global' && <div className="search-alternatives"><p>여행지 밖의 공항은 전체 지역에서 찾아보세요.</p><button type="button" className="secondary" disabled={busy} onClick={e => { setScope('global'); void search(e, 'global'); }}>공항 이름으로 전체 지역 검색</button></div>}
       {searchQuery.alternatives.length > 0 && <div className="search-alternatives"><p>이타미와 간사이는 서로 다른 공항이에요. 원하는 공항을 선택한 뒤 검색하세요.</p>{searchQuery.alternatives.map(name => <button type="button" className="secondary" key={name} disabled={busy} onClick={() => { setQuery(name); resetResults(); }}>{name}</button>)}</div>}
 
