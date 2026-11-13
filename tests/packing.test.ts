@@ -30,7 +30,7 @@ test('old backups and completed checklist items remain compatible with version 1
 test('checklist backups reject malformed arrays, empty fields, non-boolean checks and duplicate IDs', () => {
   const trip = sampleDatabase().trips[0];
   const item = { id: 'passport', name: '여권', completed: false };
-  for (const packingItems of [null, {}, [null], [{ ...item, id: ' ' }], [{ ...item, name: ' ' }], [{ ...item, completed: 'false' }], [{ ...item, completedBy: ['a', 'a'] }], [{ ...item, completedBy: ['a', 'b', 'c'] }], [{ id: 'a', name: '여권' }], [item, item]]) {
+  for (const packingItems of [null, {}, [null], [{ ...item, id: ' ' }], [{ ...item, name: ' ' }], [{ ...item, completed: 'false' }], [{ ...item, completedBy: ['a', 'a'] }], [{ ...item, completedBy: Array.from({ length: 21 }, (_, i) => String(i)) }], [{ id: 'a', name: '여권' }], [item, item]]) {
     assert.throws(() => parseDatabase({ version: 1, trips: [{ ...trip, packingItems }] }));
   }
 });

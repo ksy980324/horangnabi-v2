@@ -35,6 +35,11 @@ jobs:
         run: npm run typecheck
       - name: Run tests
         run: npm test
+      - name: Test Firestore permissions in the emulator
+        run: |
+          export JAVA_HOME="$JAVA_HOME_21_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          npm run test:rules
       - name: Read Pages URL settings
         id: pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6

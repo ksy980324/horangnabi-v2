@@ -1,14 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { onSnapshot } from 'firebase/firestore';
-import { createSharedSnapshotReader, type SharedSnapshot } from '../services/sharedSnapshot';
-import { auth, googleSignIn, sharedReferences } from '../services/firebase';
-import { packingMembers } from '../services/packing';
+import { createSharedSnapshotReader } from '../services/sharedSnapshot';
+import { auth, googleSignIn, sharedReferences, migrateLegacyTrips } from '../services/firebase';
+import { InviteJoin } from './TripSharing';
+import { inviteTokenFromHash, type TripAccess } from '../services/tripMembers';
 import { clearSharedOfflineTrip } from '../services/offlineTrip';
 import { SiteHeader, type HeaderAction } from './SiteHeader';
 import type { Database } from '../types';
 
-export type SharedData = { userId: string; memberIds: string[]; db: Database; revisions: Map<string, number> };
+export type SharedData = { userId: string; access: Map<string, TripAccess>; db: Database; revisions: Map<string, number> };
 
 export default function SharedWorkspace({ onBack, children }: { onBack: () => void; children: (data: SharedData, actions: HeaderAction[]) => ReactNode }) {
   const [user, setUser] = useState<User | null>();
@@ -16,6 +17,10 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [workspace, setWorkspace] = useState<SharedData>();
+  const [token, setToken] = useState(() => inviteTokenFromHash(location.hash));
+  const [migrationMessage, setMigrationMessage] = useState('');
+  useEffect(() => { const changed = () => setToken(inviteTokenFromHash(location.hash)); window.addEventListener('hashchange', changed); return () => window.removeEventListener('hashchange', changed); }, []);
+  const closeInvite = () => { history.replaceState(history.state, '', location.pathname + location.search); setToken(undefined); };
   useEffect(() => {
     if (!auth) return;
     return onAuthStateChanged(auth, next => {
@@ -25,55 +30,30 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
   }, []);
   useEffect(() => {
     if (!user) return;
-    const refs = sharedReferences();
-    const readTrips = createSharedSnapshotReader();
+    const refs = sharedReferences(user.uid);
+    const readTrips = createSharedSnapshotReader(user.uid);
     const pendingChanges = new Set<string>();
     let disposed = false;
-    let stopMembers: (() => void) | undefined;
-    let stopTrips: (() => void) | undefined;
-    let memberIds: string[] | undefined;
-    let trips: SharedSnapshot | undefined;
-    const publish = () => {
-      // Both server responses must be ready; never reveal a cached/unauthorized workspace.
-      if (disposed || !memberIds || !trips) return;
-      const ready = { userId: user.uid, memberIds, ...trips };
-      setWorkspace(current => current?.db === ready.db && current.memberIds.length === ready.memberIds.length
-        && current.memberIds.every((id, index) => id === ready.memberIds[index]) ? current : ready);
-      setMessage('');
-    };
-    const fail = (message: string) => {
+    const stopTrips = onSnapshot(refs.visibleTrips, { includeMetadataChanges: true }, result => {
       if (disposed) return;
-      disposed = true;
-      stopMembers?.(); stopTrips?.();
-      setWorkspace(undefined);
-      setMessage(message);
-    };
-    // Start both independent subscriptions together, instead of waiting one network round trip.
-    stopMembers = onSnapshot(refs.members, { includeMetadataChanges: true }, snapshot => {
-      if (disposed || snapshot.metadata.fromCache) return;
-      memberIds = packingMembers(snapshot.data()?.uids);
-      if (!memberIds.includes(user.uid)) {
-        fail('아직 공유 공간에 등록되지 않은 계정이거나 접근 규칙이 적용되지 않았어요.');
-        return;
-      }
-      publish();
-    }, error => {
-      fail(error.code === 'permission-denied' ? '아직 공유 공간에 등록되지 않은 계정이거나 접근 규칙이 적용되지 않았어요.' : '공유 공간 연결을 확인해 주세요.');
-    });
-    stopTrips = onSnapshot(refs.trips, { includeMetadataChanges: true }, result => {
-      if (disposed) return;
-      // Cached/offline changes may be followed by a server event containing only metadata.
       for (const change of result.docChanges()) pendingChanges.add(change.doc.id);
       if (result.metadata.fromCache) return;
       try {
-        trips = readTrips(result.docs, [...pendingChanges]);
+        const trips = readTrips(result.docs, [...pendingChanges]);
         pendingChanges.clear();
-        publish();
-      } catch { fail('공유 여행 데이터를 읽지 못했어요.'); }
+        setWorkspace(current => current?.db === trips.db && current.access === trips.access ? current : { userId: user.uid, ...trips });
+        setMessage('');
+      } catch { setWorkspace(undefined); setMessage('공유 여행 데이터를 읽지 못했어요.'); }
     }, error => {
-      fail(error.code === 'permission-denied' ? '공유 여행에 접근할 권한이 없어요.' : '공유 여행을 불러오지 못했어요.');
+      if (disposed) return;
+      setWorkspace(undefined);
+      setMessage(error.code === 'permission-denied' ? '여행별 공유 보안 규칙을 적용한 뒤 접근 다시 확인을 눌러 주세요.' : '공유 여행을 불러오지 못했어요.');
     });
-    return () => { disposed = true; stopMembers?.(); stopTrips?.(); };
+    setMigrationMessage('기존 공유 여행을 확인하고 있어요.');
+    void migrateLegacyTrips(user.uid).then(() => { if (!disposed) setMigrationMessage(''); }).catch(() => {
+      if (!disposed) setMigrationMessage('기존 여행을 전환하지 못했어요. 데이터는 원본에 남아 있어요. 보안 규칙과 연결을 확인한 뒤 다시 로그인해 주세요.');
+    });
+    return () => { disposed = true; stopTrips(); };
   }, [user, attempt]);
 
   async function changeSession() {
@@ -102,7 +82,7 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
   const actions: HeaderAction[] = [{ label: '이 기기의 여행', onClick: onBack }];
   if (user) actions.push({ label: '로그아웃', onClick: () => void changeSession(), disabled: busy });
 
-  if (workspace && workspace.userId === user?.uid) return children(workspace, actions);
+  if (workspace && workspace.userId === user?.uid) return <>{migrationMessage && <p role="status" className="migration-notice">{migrationMessage}</p>}{children(workspace, actions)}{token && <InviteJoin token={token} userId={user.uid} access={workspace.access} onClose={closeInvite}/>}</>;
   return <>
     <SiteHeader actions={actions}/>
     <main className="shared-panel">

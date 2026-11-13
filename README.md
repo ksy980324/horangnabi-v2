@@ -2,17 +2,23 @@
 
 **[호랑나비 접속하기](https://ksy980324.github.io/horangnabi-v2/)** — GitHub Pages 공개 배포 완료. PC 실행 없이 휴대폰에서 접속할 수 있습니다. 기존 PC/LAN 일정은 JSON 백업·복원으로 가져오세요.
 
-우리 둘의 여행을 위한 모바일 중심 여행 플래너입니다. 기존 프로젝트를 건드리지 않고 이 하위 폴더에 독립적으로 구현했습니다. Firebase 계정은 필요하지 않습니다. Google Maps를 사용하려면 API 키와 결제 설정이 필요하며, 키 없이 실행하면 기존 무료 지도를 표시합니다.
+원하는 동행인끼리 여행을 공유하는 모바일 중심 여행 플래너입니다. 기존 프로젝트를 건드리지 않고 이 하위 폴더에 독립적으로 구현했습니다. 기기 여행만 쓰는 개발 환경에는 Firebase 계정이 필요하지 않습니다. 공유 여행은 기존 Firebase 설정을 사용합니다. Google Maps를 사용하려면 API 키와 결제 설정이 필요하며, 키 없이 실행하면 기존 무료 지도를 표시합니다.
 
 ## Google Maps 연결
 집 밖에서도 접속할 GitHub Pages 배포는 [배포 안내](docs/GITHUB_PAGES_SETUP.md)를 참고하세요. 공개 저장소는 [ksy980324/horangnabi-v2](https://github.com/ksy980324/horangnabi-v2)이며 실제 배포 상태는 [진행 상황](docs/PROGRESS.md)에 기록합니다. 무료 Pages는 소스와 앱 화면이 공개되는 방식입니다.
 
 한국어 Google Maps와 번호 핀, 일정 연동을 구현했습니다. [Google Maps 설정 안내](docs/GOOGLE_MAPS_SETUP.md)를 따라 Google Cloud에서 Maps JavaScript API를 켜고, `.env.example`을 `.env.local`로 복사한 뒤 API 키를 입력하세요. 서버를 재시작하면 Google 지도로 전환됩니다. 배포 전에는 자체 JavaScript Map ID를 생성해 설정하세요. 장소 검색은 기존 Photon을 유지하므로 Google Places 설정은 필요하지 않습니다. API 키는 채팅에 보내지 않아도 됩니다.
 
+## 친구와 여행 공유하기
+
+**기존 사용자도 먼저 [Firebase 적용 순서](docs/FIREBASE_SETUP.md)를 확인하세요. 새 firestore.rules 게시와 Pages 배포가 각각 필요합니다.** 기존 여행 원본과 두 계정은 보존하며 자동 전환합니다.
+
+Google 로그인 → 여행 만들기 → 여행 공유 → 초대 링크 만들기·복사 → 친구가 로그인해 참여 요청 → 여행장이 승인합니다. 친구 UID를 콘솔에 직접 넣지 않습니다. 각 계정은 자신이 참여한 여행만 보고, 친구들도 자기 모임의 여행을 따로 만들 수 있습니다. 링크는 7일 유효하며 여행당 20명까지 참여합니다.
+
 ## 개발 환경과 실행
 휴대폰에서 같은 와이파이로 확인하려면 `npm.cmd run dev:mobile`을 실행하세요. 접속 주소·Google 키 허용 목록·방화벽·데이터 이동은 [휴대폰 접속 안내](docs/MOBILE_ACCESS.md)를 참고하세요. 외부 접속용 배포와 공동 편집은 별도 단계입니다.
 
-Node.js 22.12 이상(또는 24 LTS)과 npm이 필요합니다. Node.js 설치 시 npm도 함께 설치됩니다. PowerShell에서:
+개발과 보안 규칙 테스트에는 Node.js 24.12 이상의 24 LTS와 npm을 권장합니다. 기본 앱 실행은 Node.js 22.12 이상도 가능하지만 보안 테스트 도구는 24.12 이상이 필요합니다. Node.js 설치 시 npm도 함께 설치됩니다. PowerShell에서:
 
 ```powershell
 cd C:\Users\ct06\vscode-repos\horangnabi\horangnabi-v2
@@ -41,7 +47,7 @@ node --experimental-strip-types --test tests/data.test.ts tests/search.test.ts
 
 ## 사용 방법
 
-**여행 열기 → 준비물**에서 여권·충전기처럼 챙길 것을 추가하세요. 체크하면 준비 완료로 표시되며 연필 버튼으로 이름 수정, 휴지통 버튼으로 삭제할 수 있습니다. 완료 개수와 진행률도 표시됩니다. 각 여행에 따로 저장되고 JSON 백업에도 포함됩니다. 두 기기 간 자동 동기화는 아직 지원하지 않습니다.
+**여행 열기 → 준비물**에서 여권·충전기처럼 챙길 것을 추가하세요. 체크하면 준비 완료로 표시되며 연필 버튼으로 이름 수정, 휴지통 버튼으로 삭제할 수 있습니다. 완료 개수와 진행률도 표시됩니다. 각 여행에 따로 저장되고 JSON 백업에도 포함됩니다. 공유 여행은 참여한 계정에 실시간 반영되며, 기기 여행은 해당 브라우저에만 저장됩니다.
 
 여행을 열고 **장소 보관함 → 후보 장소 추가**를 누르면 날짜를 정하지 않고 장소를 모아둘 수 있습니다. 검색하거나 지도에서 고르고, 장소 이름만 입력해 저장해도 됩니다. 후보 카드를 누르면 수정·삭제와 날짜 선택이 나타납니다. **일정으로 이동**하면 해당 날짜 마지막에 시간 미정 일정으로 옮겨지고 보관함에서는 빠집니다. 후보도 JSON 백업에 포함됩니다.
 
@@ -105,4 +111,4 @@ docs/PROGRESS.md          구현 상태와 검증 이력
 main push 또는 수동 실행 시 GitHub Actions가 설치 → 검사/테스트 → 지도 설정 확인 → 빌드 → dist 업로드 → Pages 배포를 진행합니다. 저장소 경로는 Pages 메타데이터에 맞춰 설정합니다. 지도 Secret/Variable 등록 후 실제 공개 배포와 접속을 확인했습니다. [배포 안내](docs/GITHUB_PAGES_SETUP.md)를 참고하세요. localStorage 여행 데이터는 서버로 자동 업로드되지 않습니다.
 
 ## 다음 단계
-장소 보관함·준비물·Pages 배포를 구현했습니다. Firebase 2인 실시간 공동 편집과 PWA가 남아 있습니다. Codex 작업 시작 시 `AGENTS.md`와 `docs/PRODUCT_SPEC.md`를 반드시 읽으세요.
+장소 보관함·준비물·Pages 배포를 구현했습니다. Firebase 여행별 초대·승인과 실시간 공동 편집을 구현했으며 PWA 설치 지원이 남아 있습니다. Codex 작업 시작 시 `AGENTS.md`와 `docs/PRODUCT_SPEC.md`를 반드시 읽으세요.

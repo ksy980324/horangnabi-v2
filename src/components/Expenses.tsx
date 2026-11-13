@@ -5,9 +5,9 @@ import { amountInput, currencies, currencyName, expenseLimit, formatAmount, isEx
 import type { Expense } from '../types';
 import { Modal } from './Modal';
 
-type Members = { userId: string; memberIds: readonly string[] };
+type Members = { userId: string; memberIds: readonly string[]; memberNames?: Record<string, string> };
 const memberLabel = (id: string, members: Members) =>
-  id === members.userId ? '나' : members.memberIds.includes(id) ? '동행인' : '이전 참여자';
+  id === members.userId ? '나' : members.memberNames?.[id] || (members.memberIds.includes(id) ? '동행인' : '이전 참여자 · ' + id.slice(-6));
 
 export function Expenses({ items, members, busy, onAdd, onEdit, onDelete }: {
   items: Expense[]; members: Members; busy: boolean; onAdd: () => void; onEdit: (id: string) => void; onDelete: (id: string) => void;
@@ -20,11 +20,7 @@ export function Expenses({ items, members, busy, onAdd, onEdit, onDelete }: {
       {summaries.map(summary => <li key={summary.currency}>
         <small>{currencyName(summary.currency)} · 전체 지출</small><strong>{formatAmount(summary.total, summary.currency)}</strong>
         <p>공동 지출 {formatAmount(summary.shared, summary.currency)}</p>
-        <p className="expense-settlement">{summary.shared === 0 ? '공동 지출이 없어요.'
-          : summary.formerMember ? '이전 참여자의 공동 지출이 있어 정산을 표시할 수 없어요.'
-          : members.memberIds.length !== 2 ? '두 사람이 등록되면 정산 금액이 표시돼요.'
-          : summary.amount === 0 ? '보낼 금액이 없어요.'
-          : `${memberLabel(summary.from, members)} → ${memberLabel(summary.to, members)} ${formatAmount(summary.amount, summary.currency)}`}</p>
+        <div className="expense-settlement">{summary.formerMember ? <p>이전 참여자의 공동 지출이 있어 정산을 표시할 수 없어요.</p> : summary.transfers.length ? summary.transfers.map((transfer, index) => <p key={index}>{memberLabel(transfer.from, members)} → {memberLabel(transfer.to, members)} {formatAmount(transfer.amount, summary.currency)}</p>) : <p>{summary.shared ? '보낼 금액이 없어요.' : '공동 지출이 없어요.'}</p>}</div>
       </li>)}
     </ul>}
     {items.length ? <ul className="expense-list">{[...items].reverse().sort((a, b) => b.date.localeCompare(a.date)).map(item =>
@@ -35,7 +31,7 @@ export function Expenses({ items, members, busy, onAdd, onEdit, onDelete }: {
           <button className="text-button" disabled={busy} onClick={() => onEdit(item.id)} aria-label={`${item.name} 수정`}><Pencil size={14}/>수정</button>
           <button className="text-button danger" disabled={busy} onClick={() => { if (confirm(`‘${item.name}’ 지출을 삭제할까요?`)) onDelete(item.id); }} aria-label={`${item.name} 삭제`}><Trash2 size={14}/>삭제</button>
         </div>
-      </li>)}</ul> : <div className="empty"><Wallet size={30} aria-hidden="true"/><h3>아직 지출이 없어요</h3><p>공동 지출은 반씩 나누고, 개인 지출은 따로 기록해요.</p></div>}
+      </li>)}</ul> : <div className="empty"><Wallet size={30} aria-hidden="true"/><h3>아직 지출이 없어요</h3><p>공동 지출은 참여자끼리 균등하게 나누고, 개인 지출은 따로 기록해요.</p></div>}
   </section>;
 }
 
@@ -71,9 +67,9 @@ export function ExpenseForm({ item, members, defaultCurrency, onClose, onSave, b
         {item && !members.memberIds.includes(item.paidBy) && <option value={item.paidBy}>이전 참여자</option>}
       </select></label>
       <label>지출 구분<select value={shared ? 'shared' : 'personal'} onChange={event => setShared(event.target.value === 'shared')}>
-        <option value="shared">공동 지출 · 반씩 정산</option><option value="personal">개인 지출 · 정산 제외</option>
+        <option value="shared">공동 지출 · 현재 참여자 균등 정산</option><option value="personal">개인 지출 · 정산 제외</option>
       </select></label>
-      <p className="muted">개인 지출도 두 사람에게 보이며 전체 지출에 포함돼요.</p>
+      <p className="muted">개인 지출도 참여자 모두에게 보여요. 공동 지출은 현재 참여자 기준으로 균등 정산하며, 참여자가 바뀌면 과거 지출의 정산도 다시 계산돼요.</p>
       {error && <p className="error" role="alert">{error}</p>}
       <button className="primary" disabled={busy}>저장</button>
     </form>

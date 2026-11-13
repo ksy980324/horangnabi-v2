@@ -1,9 +1,9 @@
 import type { PackingItem, Trip } from '../types';
 
-export const SHARED_PACKING_PARTICIPANTS = 2;
+import { MAX_TRIP_MEMBERS } from './tripMembers.ts';
 
 export function packingMembers(value: unknown): string[] {
-  if (!Array.isArray(value) || value.length > SHARED_PACKING_PARTICIPANTS) return [];
+  if (!Array.isArray(value) || value.length > MAX_TRIP_MEMBERS) return [];
   return [...new Set(value.filter((id): id is string => typeof id === 'string' && !!id.trim()))];
 }
 
@@ -19,7 +19,7 @@ export function setPackingCheckedBy(item: PackingItem, memberIds: readonly strin
   if (!memberIds.includes(userId)) return item;
   const completedBy = (item.completedBy ?? []).filter(id => memberIds.includes(id) && id !== userId);
   if (checked) completedBy.push(userId);
-  return { ...item, completedBy, completed: completedBy.length === SHARED_PACKING_PARTICIPANTS };
+  return { ...item, completedBy, completed: memberIds.length > 0 && completedBy.length === memberIds.length };
 }
 
 export function savePackingItem(trip: Trip, item: PackingItem): Trip {

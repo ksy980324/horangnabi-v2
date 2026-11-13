@@ -37,24 +37,38 @@ export function isExpense(value: unknown): value is Expense {
 }
 
 export function summarizeExpenses(items: Expense[], members: readonly string[]) {
-  const totals = new Map<string, { total: number; shared: number; balance: number; formerMember: boolean }>();
+  const totals = new Map<string, { total: number; shared: number; paid: Map<string, number>; formerMember: boolean }>();
   for (const item of items) {
-    const entry = totals.get(item.currency) ?? { total: 0, shared: 0, balance: 0, formerMember: false };
+    const entry = totals.get(item.currency) ?? { total: 0, shared: 0, paid: new Map(members.map(id => [id, 0])), formerMember: false };
     entry.total += item.amount;
     if (item.shared) {
       entry.shared += item.amount;
-      if (item.paidBy === members[0]) entry.balance += item.amount;
-      else if (item.paidBy === members[1]) entry.balance -= item.amount;
+      if (entry.paid.has(item.paidBy)) entry.paid.set(item.paidBy, entry.paid.get(item.paidBy)! + item.amount);
       else entry.formerMember = true;
     }
     totals.set(item.currency, entry);
   }
   return [...totals].map(([currency, entry]) => {
-    const amount = Math.floor(Math.abs(entry.balance) / 2);
-    return {
-      currency, ...entry, amount,
-      from: members[entry.balance > 0 ? 1 : 0],
-      to: members[entry.balance > 0 ? 0 : 1],
-    };
+    const transfers: { from: string; to: string; amount: number }[] = [];
+    if (members.length && !entry.formerMember) {
+      const base = Math.floor(entry.shared / members.length);
+      const remainder = entry.shared % members.length;
+      // The highest payers bear indivisible units; preserve the previous two-person rounding.
+      const ranked = [...members].sort((a, b) => entry.paid.get(b)! - entry.paid.get(a)!);
+      const extra = new Set(ranked.slice(0, remainder));
+      const balances = members.map(id => ({ id, balance: entry.paid.get(id)! - base - (extra.has(id) ? 1 : 0) }));
+      const debtors = balances.filter(item => item.balance < 0);
+      const creditors = balances.filter(item => item.balance > 0);
+      let index = 0;
+      for (const debtor of debtors) while (debtor.balance < 0 && index < creditors.length) {
+        const creditor = creditors[index];
+        const amount = Math.min(-debtor.balance, creditor.balance);
+        transfers.push({ from: debtor.id, to: creditor.id, amount });
+        debtor.balance += amount; creditor.balance -= amount;
+        if (creditor.balance === 0) index++;
+      }
+    }
+    return { currency, total: entry.total, shared: entry.shared, formerMember: entry.formerMember,
+      transfers, amount: transfers[0]?.amount ?? 0, from: transfers[0]?.from, to: transfers[0]?.to };
   });
 }

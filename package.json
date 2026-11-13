@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "measure:startup": "node scripts/measure-startup.mjs",
     "test": "tsx --test tests/*.test.ts",
+    "test:rules": "npx --yes firebase-tools@15.36.0 emulators:exec --project demo-horangnabi --only firestore \"node --test tests/firestore.rules.integration.mjs\"",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
@@ -20,6 +21,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

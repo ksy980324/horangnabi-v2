@@ -4,7 +4,7 @@ import { datesBetween } from '../data';
 import { loadTripCover, representativeTripPlace, type WikimediaPhoto } from '../services/wikimediaPhotos';
 import type { Trip } from '../types';
 
-export function TripCard({ trip, featured = false, onOpen, onEdit, onDelete }: { trip: Trip; featured?: boolean; onOpen: () => void; onEdit: () => void; onDelete: () => void }) {
+export function TripCard({ trip, featured = false, onOpen, onEdit, onDelete }: { trip: Trip; featured?: boolean; onOpen: () => void; onEdit: () => void; onDelete?: () => void }) {
   const { destination, region } = trip;
   const { countryCode, cityName, lat, lng } = destination ?? {};
   const card = useRef<HTMLElement>(null);
@@ -50,7 +50,7 @@ export function TripCard({ trip, featured = false, onOpen, onEdit, onDelete }: {
     </button>
     <div className="trip-actions">
       <button className="text-button" onClick={onEdit}><Pencil size={14}/>수정</button>
-      <button className="text-button" onClick={onDelete}><Trash2 size={14}/>삭제</button>
+      {onDelete && <button className="text-button" onClick={onDelete}><Trash2 size={14}/>삭제</button>}
       {photo && <details className="trip-cover-credit"><summary>사진 출처</summary><a href={photo.source} target="_blank" rel="noopener noreferrer">{photo.author || 'Wikimedia Commons'}</a>{' · '}{photo.licenseUrl ? <a href={photo.licenseUrl} target="_blank" rel="noopener noreferrer">{photo.license}</a> : photo.license}</details>}
     </div>
   </article>;
