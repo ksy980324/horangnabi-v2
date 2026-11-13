@@ -14,7 +14,7 @@ import type { Database } from '../types';
 
 export type SharedData = { userId: string; nickname: string; access: Map<string, TripAccess>; db: Database; revisions: Map<string, number> };
 
-export default function SharedWorkspace({ onBack, children }: { onBack: () => void; children: (data: SharedData, actions: HeaderAction[]) => ReactNode }) {
+export default function SharedWorkspace({ onBack, children }: { onBack?: () => void; children: (data: SharedData, actions: HeaderAction[]) => ReactNode }) {
   const [user, setUser] = useState<User | null>();
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -134,19 +134,21 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
     } finally { setBusy(false); }
   }
 
-  const actions: HeaderAction[] = [{ label: '이 기기의 여행', onClick: onBack }];
+  const actions: HeaderAction[] = [];
+  const legacyRecovery = onBack && <aside className="legacy-recovery"><button className="text-button" type="button" onClick={onBack}>이전 기기 여행 복구</button><small>과거 이 기기에만 저장한 여행을 열어요.</small></aside>;
   if (user && profile && workspace && !setupPending) actions.push({ label: `닉네임 변경 · ${profile.nickname}`, onClick: openProfileEditor, disabled: busy || profileSaving });
   if (user) actions.push({ label: '로그아웃', onClick: () => void changeSession(), disabled: busy || profileSaving });
 
-  if (user && (profile === null || setupPending)) return <><SiteHeader actions={actions}/><main><NicknameForm required busy={profileSaving} initial={profile?.nickname} message={profileError} onSave={changeNickname} onCancel={() => {}}/></main></>;
-  if (workspace && workspace.userId === user?.uid && profile) return <>{(migrationMessage || nameSyncError) && <p role="status" className="migration-notice">{nameSyncError || migrationMessage}</p>}{children({ ...workspace, nickname: profile.nickname }, actions)}{profileEditing && <Modal title="닉네임 변경" busy={profileSaving} onClose={closeProfileEditor}><NicknameForm required={false} busy={profileSaving} initial={profile.nickname} onSave={changeNickname} onCancel={closeProfileEditor}/></Modal>}{token && <InviteJoin token={token} userId={user.uid} access={workspace.access} onClose={closeInvite}/>}</>;
+  if (user && (profile === null || setupPending)) return <><SiteHeader actions={actions}/><main><NicknameForm required busy={profileSaving} initial={profile?.nickname} message={profileError} onSave={changeNickname} onCancel={() => {}}/></main>{legacyRecovery}</>;
+  if (workspace && workspace.userId === user?.uid && profile) return <>{(migrationMessage || nameSyncError) && <p role="status" className="migration-notice">{nameSyncError || migrationMessage}</p>}{children({ ...workspace, nickname: profile.nickname }, actions)}{legacyRecovery}{profileEditing && <Modal title="닉네임 변경" busy={profileSaving} onClose={closeProfileEditor}><NicknameForm required={false} busy={profileSaving} initial={profile.nickname} onSave={changeNickname} onCancel={closeProfileEditor}/></Modal>}{token && <InviteJoin token={token} userId={user.uid} access={workspace.access} onClose={closeInvite}/>}</>;
   return <>
     <SiteHeader actions={actions}/>
     <main className="shared-panel">
-      <h1>공유 여행</h1>
+      <h1>내 여행</h1>
       <p role="status">{profileError || message || (user === undefined ? '로그인 상태를 확인하고 있어요.' : user ? profile === undefined ? '닉네임 정보를 확인하고 있어요.' : '공유 여행을 불러오고 있어요.' : 'Google 계정으로 로그인해 공유 여행을 열어보세요.')}</p>
       {user === null && <button className="primary" disabled={busy} onClick={() => void changeSession()}>{busy ? '로그인 중' : 'Google로 로그인'}</button>}
       {user && <><p>{user.email}</p><p>Firebase 사용자 UID <code>{user.uid}</code></p><button className="secondary" onClick={() => { setMessage(''); setAttempt(value => value + 1); }}>접근 다시 확인</button></>}
     </main>
+    {legacyRecovery}
   </>;
 }

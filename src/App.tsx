@@ -44,8 +44,9 @@ function load(): { db: Database; error: string } {
 export default function App() {
   const [sharedOpen, setSharedOpen] = useState(firebaseConfigured);
   const openLocal = () => setSharedOpen(false);
-  if (sharedOpen) return <Suspense fallback={<><SiteHeader actions={[{ label: '이 기기의 여행', onClick: openLocal }]}/><main className="shared-panel"><p role="status">공유 여행 화면을 열고 있어요.</p></main></>}><SharedWorkspace onBack={openLocal}>{(shared, actions) => <Planner key={shared.userId} shared={shared} headerActions={actions}/>}</SharedWorkspace></Suspense>;
-  return <Planner headerActions={firebaseConfigured ? [{ label: '공유 여행', onClick: () => setSharedOpen(true) }] : undefined}/>;
+  const [legacyAvailable] = useState(() => { try { return localStorage.getItem(STORAGE_KEY) !== null; } catch { return false; } });
+  if (sharedOpen) return <Suspense fallback={<><SiteHeader/><main className="shared-panel"><p role="status">공유 여행 화면을 열고 있어요.</p></main></>}><SharedWorkspace onBack={legacyAvailable ? openLocal : undefined}>{(shared, actions) => <Planner key={shared.userId} shared={shared} headerActions={actions}/>}</SharedWorkspace></Suspense>;
+  return <Planner headerActions={firebaseConfigured ? [{ label: '내 여행으로 돌아가기', onClick: () => setSharedOpen(true) }] : undefined}/>;
 }
 
 function Planner({ shared, headerActions }: { shared?: SharedData; headerActions?: HeaderAction[] }) {
