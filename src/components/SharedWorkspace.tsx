@@ -2,21 +2,30 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { onAuthStateChanged, signOut, type User } from 'firebase/auth';
 import { onSnapshot } from 'firebase/firestore';
 import { createSharedSnapshotReader } from '../services/sharedSnapshot';
-import { auth, googleSignIn, sharedReferences, migrateLegacyTrips } from '../services/firebase';
+import { auth, googleSignIn, sharedReferences, migrateLegacyTrips, profileReference, saveNickname, syncOwnNickname } from '../services/firebase';
+import { parseUserProfile, type UserProfile } from '../services/userProfile';
+import { NicknameForm } from './NicknameForm';
+import { Modal } from './Modal';
 import { InviteJoin } from './TripSharing';
 import { inviteTokenFromHash, type TripAccess } from '../services/tripMembers';
 import { clearSharedOfflineTrip } from '../services/offlineTrip';
 import { SiteHeader, type HeaderAction } from './SiteHeader';
 import type { Database } from '../types';
 
-export type SharedData = { userId: string; access: Map<string, TripAccess>; db: Database; revisions: Map<string, number> };
+export type SharedData = { userId: string; nickname: string; access: Map<string, TripAccess>; db: Database; revisions: Map<string, number> };
 
 export default function SharedWorkspace({ onBack, children }: { onBack: () => void; children: (data: SharedData, actions: HeaderAction[]) => ReactNode }) {
   const [user, setUser] = useState<User | null>();
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  const [workspace, setWorkspace] = useState<SharedData>();
+  const [workspace, setWorkspace] = useState<Omit<SharedData, 'nickname'>>();
+  const [profile, setProfile] = useState<UserProfile | null>();
+  const [profileError, setProfileError] = useState('');
+  const [profileEditing, setProfileEditing] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [setupPending, setSetupPending] = useState(false);
+  const [nameSyncError, setNameSyncError] = useState('');
   const [token, setToken] = useState(() => inviteTokenFromHash(location.hash));
   const [migrationMessage, setMigrationMessage] = useState('');
   useEffect(() => { const changed = () => setToken(inviteTokenFromHash(location.hash)); window.addEventListener('hashchange', changed); return () => window.removeEventListener('hashchange', changed); }, []);
@@ -25,9 +34,17 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
     if (!auth) return;
     return onAuthStateChanged(auth, next => {
       if (next) clearSharedOfflineTrip(next.uid);
-      setWorkspace(undefined); setMessage(''); setUser(next);
+      setWorkspace(undefined); setProfile(undefined); setProfileError(''); setProfileEditing(false); setSetupPending(false); setNameSyncError(''); setMessage(''); setUser(next);
     });
   }, []);
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(profileReference(user.uid), { includeMetadataChanges: true }, snapshot => {
+      if (snapshot.metadata.fromCache) return;
+      try { setProfile(snapshot.exists() ? parseUserProfile(snapshot.data()) : null); setProfileError(''); }
+      catch { setProfile(null); setProfileError('저장된 닉네임을 확인하지 못했어요. 다시 설정해 주세요.'); }
+    }, () => { setProfile(undefined); setProfileError('닉네임 정보를 불러오지 못했어요. 새 보안 규칙과 연결을 확인하고 접근 다시 확인을 눌러 주세요.'); });
+  }, [user, attempt]);
   useEffect(() => {
     if (!user) return;
     const refs = sharedReferences(user.uid);
@@ -49,12 +66,50 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
       setWorkspace(undefined);
       setMessage(error.code === 'permission-denied' ? '여행별 공유 보안 규칙을 적용한 뒤 접근 다시 확인을 눌러 주세요.' : '공유 여행을 불러오지 못했어요.');
     });
+    return () => { disposed = true; stopTrips(); };
+  }, [user, attempt]);
+  const profileReady = !!profile;
+  useEffect(() => {
+    if (!user || !profileReady) return;
+    let disposed = false;
     setMigrationMessage('기존 공유 여행을 확인하고 있어요.');
     void migrateLegacyTrips(user.uid).then(() => { if (!disposed) setMigrationMessage(''); }).catch(() => {
       if (!disposed) setMigrationMessage('기존 여행을 전환하지 못했어요. 데이터는 원본에 남아 있어요. 보안 규칙과 연결을 확인한 뒤 다시 로그인해 주세요.');
     });
-    return () => { disposed = true; stopTrips(); };
-  }, [user, attempt]);
+    return () => { disposed = true; };
+  }, [user, profileReady, attempt]);
+  const pendingNameTrips = profile && workspace ? [...workspace.access].filter(([, access]) => access.memberNames[user!.uid] !== profile.nickname).map(([id]) => id).sort().join('|') : '';
+  useEffect(() => {
+    if (!user || !profile || profileSaving || !pendingNameTrips) { if (!pendingNameTrips) setNameSyncError(''); return; }
+    let active = true;
+    void syncOwnNickname(user.uid, profile.nickname).then(() => { if (active) setNameSyncError(''); }).catch(() => { if (active) setNameSyncError('일부 여행의 닉네임을 갱신하지 못했어요. 메뉴의 닉네임 변경에서 다시 저장해 주세요.'); });
+    return () => { active = false; };
+  }, [user, profile?.nickname, pendingNameTrips, profileSaving]);
+  useEffect(() => {
+    const restore = () => setProfileEditing(!!user && history.state?.horangnabiNickname === user.uid);
+    window.addEventListener('popstate', restore);
+    return () => window.removeEventListener('popstate', restore);
+  }, [user]);
+  function openProfileEditor() {
+    if (!user) return;
+    history.pushState({ ...history.state, horangnabiNickname: user.uid }, '');
+    setProfileEditing(true);
+  }
+  function closeProfileEditor() {
+    if (user && history.state?.horangnabiNickname === user.uid) history.back();
+    else setProfileEditing(false);
+  }
+
+  async function changeNickname(nickname: string) {
+    if (!user || profileSaving) return;
+    if (!profile) setSetupPending(true);
+    setProfileSaving(true);
+    try { await saveNickname(user.uid, nickname); setSetupPending(false); if (profileEditing) closeProfileEditor(); setNameSyncError(''); }
+    catch (error) {
+      if (error instanceof Error && error.message.startsWith('닉네임은 저장')) throw error;
+      throw new Error('닉네임을 저장하지 못했어요. 새 보안 규칙과 연결을 확인하고 다시 시도해 주세요.');
+    } finally { setProfileSaving(false); }
+  }
 
   async function changeSession() {
     if (!auth) return;
@@ -80,14 +135,16 @@ export default function SharedWorkspace({ onBack, children }: { onBack: () => vo
   }
 
   const actions: HeaderAction[] = [{ label: '이 기기의 여행', onClick: onBack }];
-  if (user) actions.push({ label: '로그아웃', onClick: () => void changeSession(), disabled: busy });
+  if (user && profile && workspace && !setupPending) actions.push({ label: `닉네임 변경 · ${profile.nickname}`, onClick: openProfileEditor, disabled: busy || profileSaving });
+  if (user) actions.push({ label: '로그아웃', onClick: () => void changeSession(), disabled: busy || profileSaving });
 
-  if (workspace && workspace.userId === user?.uid) return <>{migrationMessage && <p role="status" className="migration-notice">{migrationMessage}</p>}{children(workspace, actions)}{token && <InviteJoin token={token} userId={user.uid} access={workspace.access} onClose={closeInvite}/>}</>;
+  if (user && (profile === null || setupPending)) return <><SiteHeader actions={actions}/><main><NicknameForm required busy={profileSaving} initial={profile?.nickname} message={profileError} onSave={changeNickname} onCancel={() => {}}/></main></>;
+  if (workspace && workspace.userId === user?.uid && profile) return <>{(migrationMessage || nameSyncError) && <p role="status" className="migration-notice">{nameSyncError || migrationMessage}</p>}{children({ ...workspace, nickname: profile.nickname }, actions)}{profileEditing && <Modal title="닉네임 변경" busy={profileSaving} onClose={closeProfileEditor}><NicknameForm required={false} busy={profileSaving} initial={profile.nickname} onSave={changeNickname} onCancel={closeProfileEditor}/></Modal>}{token && <InviteJoin token={token} userId={user.uid} access={workspace.access} onClose={closeInvite}/>}</>;
   return <>
     <SiteHeader actions={actions}/>
     <main className="shared-panel">
       <h1>공유 여행</h1>
-      <p role="status">{message || (user === undefined ? '로그인 상태를 확인하고 있어요.' : user ? '공유 여행을 불러오고 있어요.' : 'Google 계정으로 로그인해 공유 여행을 열어보세요.')}</p>
+      <p role="status">{profileError || message || (user === undefined ? '로그인 상태를 확인하고 있어요.' : user ? profile === undefined ? '닉네임 정보를 확인하고 있어요.' : '공유 여행을 불러오고 있어요.' : 'Google 계정으로 로그인해 공유 여행을 열어보세요.')}</p>
       {user === null && <button className="primary" disabled={busy} onClick={() => void changeSession()}>{busy ? '로그인 중' : 'Google로 로그인'}</button>}
       {user && <><p>{user.email}</p><p>Firebase 사용자 UID <code>{user.uid}</code></p><button className="secondary" onClick={() => { setMessage(''); setAttempt(value => value + 1); }}>접근 다시 확인</button></>}
     </main>

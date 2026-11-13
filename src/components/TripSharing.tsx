@@ -73,7 +73,7 @@ export function InviteJoin({ token, userId, access, onClose }: { token: string; 
   return <Modal title="여행 초대" onClose={onClose} busy={busy}>
     <div className="sharing-panel">
       {invitation && <h3>{invitation.tripName}</h3>}
-      <p role="status">{message || (joined ? '참여 중인 여행이에요. 내 여행 목록에서 열 수 있어요.' : request?.status === 'pending' ? '여행장의 승인을 기다리고 있어요. 이 창을 닫아도 요청은 유지돼요.' : request?.status === 'approved' ? '이전에 승인된 요청이에요. 여행이 목록에 없으면 다시 참여를 요청할 수 있어요.' : request?.status === 'rejected' ? '참여 요청이 거절됐어요. 여행장에게 확인해 주세요.' : '참여를 요청하면 여행장에게 Google 계정의 표시 이름이 전달돼요. 승인 전에는 일정을 볼 수 없어요.')}</p>
+      <p role="status">{message || (joined ? '참여 중인 여행이에요. 내 여행 목록에서 열 수 있어요.' : request?.status === 'pending' ? '여행장의 승인을 기다리고 있어요. 이 창을 닫아도 요청은 유지돼요.' : request?.status === 'approved' ? '이전에 승인된 요청이에요. 여행이 목록에 없으면 다시 참여를 요청할 수 있어요.' : request?.status === 'rejected' ? '참여 요청이 거절됐어요. 여행장에게 확인해 주세요.' : '참여를 요청하면 여행장에게 호랑나비 닉네임이 전달돼요. 승인 전에는 일정을 볼 수 없어요.')}</p>
       {invitation && !joined && canRequest && <button className="primary" disabled={busy} onClick={() => void join()}>{request ? '다시 참여 요청' : '참여 요청 보내기'}</button>}
       <button className="secondary" disabled={busy} onClick={onClose}>{joined ? '내 여행 목록으로' : '닫기'}</button>
     </div>

@@ -2,6 +2,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
+    function nicknameMatches(userId, name) {
+      return exists(/databases/$(database)/documents/profiles/$(userId))
+        && get(/databases/$(database)/documents/profiles/$(userId)).data.nickname == name;
+    }
     function legacyMember() {
       return signedIn() && exists(/databases/$(database)/documents/settings/members)
         && get(/databases/$(database)/documents/settings/members).data.uids is list
@@ -35,6 +39,8 @@ service cloud.firestore {
     function approvedAddition(tripId) {
       let added = request.resource.data.memberIds.removeAll(resource.data.memberIds);
       return added.size() == 1 && request.resource.data.memberIds.hasAll(resource.data.memberIds)
+        && request.resource.data.memberNames.diff(resource.data.memberNames).affectedKeys().hasOnly(added)
+        && request.resource.data.memberNames[added[0]] == get(/databases/$(database)/documents/sharedTrips/$(tripId)/requests/$(added[0])).data.displayName
         && get(/databases/$(database)/documents/sharedTrips/$(tripId)/requests/$(added[0])).data.status == 'pending'
         && getAfter(/databases/$(database)/documents/sharedTrips/$(tripId)/requests/$(added[0])).data.status == 'approved';
     }
@@ -43,12 +49,21 @@ service cloud.firestore {
       let after = request.resource.data;
       return after.trip == before.trip && after.ownerId == before.ownerId
         && ((before.ownerId == request.auth.uid
-          && (after.memberIds == before.memberIds
-            || (before.memberIds.hasAll(after.memberIds) && before.memberIds.size() == after.memberIds.size() + 1)
+          && ((after.memberIds == before.memberIds && after.memberNames == before.memberNames)
+            || (before.memberIds.hasAll(after.memberIds) && before.memberIds.size() == after.memberIds.size() + 1
+              && after.memberNames.diff(before.memberNames).affectedKeys().hasOnly(before.memberIds.removeAll(after.memberIds)))
             || approvedAddition(tripId)))
           || (request.auth.uid != before.ownerId && after.memberIds == before.memberIds.removeAll([request.auth.uid])
             && after.memberNames.diff(before.memberNames).affectedKeys().hasOnly([request.auth.uid])
             && after.inviteToken == before.inviteToken));
+    }
+    function nicknameChange() {
+      let before = resource.data;
+      let after = request.resource.data;
+      return after.trip == before.trip && after.ownerId == before.ownerId
+        && after.memberIds == before.memberIds && after.inviteToken == before.inviteToken
+        && after.memberNames.diff(before.memberNames).affectedKeys().hasOnly([request.auth.uid])
+        && nicknameMatches(request.auth.uid, after.memberNames[request.auth.uid]);
     }
     function validInvite(token) {
       let invitation = get(/databases/$(database)/documents/tripInvites/$(token)).data;
@@ -56,6 +71,17 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/sharedTrips/$(invitation.tripId)).data.inviteToken == token;
     }
     match /settings/members { allow get: if legacyMember(); }
+    match /profiles/{userId} {
+      allow get: if signedIn() && request.auth.uid == userId;
+      allow create, update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(['nickname', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['nickname', 'updatedAt'])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 1 && request.resource.data.nickname.size() <= 20
+        && request.resource.data.nickname.matches('^\\S(?:.*\\S)?$')
+        && request.resource.data.nickname.matches('^[^\\x00-\\x1F\\x7F]+$')
+        && request.resource.data.updatedAt == request.time;
+    }
     match /trips/{tripId} {
       allow read: if legacyMember();
       allow update: if legacyMember() && !('migratedTo' in resource.data)
@@ -70,11 +96,12 @@ service cloud.firestore {
       allow list: if signedIn() && request.auth.uid in resource.data.memberIds;
       allow create: if signedIn() && validTrip(tripId) && request.resource.data.revision == 1
         && request.resource.data.ownerId == request.auth.uid
+        && nicknameMatches(request.auth.uid, request.resource.data.memberNames[request.auth.uid])
         && ((request.resource.data.memberIds == [request.auth.uid] && request.resource.data.inviteToken == '') || migration(tripId));
       allow update: if signedIn() && request.auth.uid in resource.data.memberIds && validTrip(tripId)
         && request.resource.data.revision == resource.data.revision + 1
         && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trip', 'revision', 'updatedAt', 'updatedBy'])
-          || accessChange(tripId));
+          || accessChange(tripId) || nicknameChange());
       allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
       match /requests/{userId} {
         allow get: if signedIn() && (request.auth.uid == userId || owner(tripId));
@@ -84,6 +111,7 @@ service cloud.firestore {
           && request.resource.data.keys().hasOnly(['userId', 'displayName', 'status', 'inviteToken', 'createdAt'])
           && request.resource.data.userId == userId && request.resource.data.status == 'pending'
           && request.resource.data.displayName is string && request.resource.data.displayName.size() >= 1 && request.resource.data.displayName.size() <= 60
+          && nicknameMatches(request.auth.uid, request.resource.data.displayName)
           && request.resource.data.createdAt == request.time
           && !member(tripId) && validInvite(request.resource.data.inviteToken)
           && get(/databases/$(database)/documents/tripInvites/$(request.resource.data.inviteToken)).data.tripId == tripId;

@@ -3,8 +3,10 @@ import { ArrowUpRight, CalendarDays, MapPin, Pencil, Trash2 } from 'lucide-react
 import { datesBetween } from '../data';
 import { loadTripCover, representativeTripPlace, type WikimediaPhoto } from '../services/wikimediaPhotos';
 import type { Trip } from '../types';
+import type { TripAccess } from '../services/tripMembers';
+import { TripMembers } from './TripMembers';
 
-export function TripCard({ trip, featured = false, onOpen, onEdit, onDelete }: { trip: Trip; featured?: boolean; onOpen: () => void; onEdit: () => void; onDelete?: () => void }) {
+export function TripCard({ trip, featured = false, access, userId, onOpen, onEdit, onDelete }: { trip: Trip; featured?: boolean; access?: TripAccess; userId?: string; onOpen: () => void; onEdit: () => void; onDelete?: () => void }) {
   const { destination, region } = trip;
   const { countryCode, cityName, lat, lng } = destination ?? {};
   const card = useRef<HTMLElement>(null);
@@ -47,6 +49,7 @@ export function TripCard({ trip, featured = false, onOpen, onEdit, onDelete }: {
         <p className="muted"><CalendarDays size={14}/>{dateRange}</p>
         <div className="trip-card-foot"><span>{trip.stops.length}개의 소중한 계획</span><span>일정 열기 →</span></div>
       </div>}
+      {access && userId && <TripMembers access={access} userId={userId} compact/>}
     </button>
     <div className="trip-actions">
       <button className="text-button" onClick={onEdit}><Pencil size={14}/>수정</button>

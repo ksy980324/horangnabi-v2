@@ -6,7 +6,15 @@ import { collection, doc, getDoc, getDocs, query, where, setDoc, updateDoc, dele
 
 let environment;
 before(async () => { environment = await initializeTestEnvironment({ projectId: 'demo-horangnabi', firestore: { rules: readFileSync('firestore.rules', 'utf8') } }); });
-beforeEach(async () => environment.clearFirestore());
+beforeEach(async () => {
+  await environment.clearFirestore();
+  await environment.withSecurityRulesDisabled(async context => {
+    const db = context.firestore();
+    for (const [id, nickname] of Object.entries({ alice: 'alice', bob: 'Friend', charlie: 'Friend', dana: 'Friend' })) {
+      await setDoc(doc(db, 'profiles', id), { nickname, updatedAt: serverTimestamp() });
+    }
+  });
+});
 after(async () => environment?.cleanup());
 const client = uid => environment.authenticatedContext(uid).firestore();
 const payload = (id = 'trip-a', ownerId = 'alice', memberIds = [ownerId]) => ({
@@ -157,4 +165,35 @@ test('member caps are enforced even if an owner forges a client that ignores the
   batch.set(doc(alice, 'sharedTrips', 'trip-a'), update(original, 'alice', { memberIds: [...ids, 'charlie'], memberNames: { ...original.memberNames, charlie: 'Friend' } }));
   batch.update(doc(alice, 'sharedTrips', 'trip-a', 'requests', 'charlie'), { status: 'approved' });
   await assertFails(batch.commit());
+});
+
+test('nicknames are private per-user profiles; invalid names and extra account data are rejected', async () => {
+  const alice = client('alice');
+  await assertSucceeds(getDoc(doc(alice, 'profiles', 'alice')));
+  await assertFails(getDoc(doc(client('bob'), 'profiles', 'alice')));
+  await assertFails(getDocs(collection(alice, 'profiles')));
+  await assertFails(setDoc(doc(client('bob'), 'profiles', 'alice'), { nickname: 'Stolen', updatedAt: serverTimestamp() }));
+  for (const nickname of ['', ' ', ' leading', 'trailing ', 'a'.repeat(21), 'line\nbreak', 'bad\u0000name']) {
+    await assertFails(setDoc(doc(alice, 'profiles', 'alice'), { nickname, updatedAt: serverTimestamp() }));
+  }
+  await assertFails(setDoc(doc(alice, 'profiles', 'alice'), { nickname: 'Alice', email: 'private@example.test', updatedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(doc(alice, 'profiles', 'alice'), { nickname: '여행 나비', updatedAt: serverTimestamp() }));
+});
+
+test('a member updates only their own trip nickname to the saved profile without changing permissions or content', async () => {
+  const original = await seed(); const bob = client('bob'); const ref = doc(bob, 'sharedTrips', 'trip-a');
+  const renamed = update(original, 'bob', { memberNames: { alice: 'alice', bob: 'Friend' } });
+  await assertSucceeds(setDoc(ref, renamed));
+  await assertFails(setDoc(ref, update(renamed, 'bob', { memberNames: { alice: 'alice', bob: 'Not saved' } })));
+  await assertFails(setDoc(ref, update(renamed, 'bob', { memberNames: { alice: 'Impersonated', bob: 'Friend' } })));
+  await assertFails(setDoc(doc(client('alice'), 'sharedTrips', 'trip-a'), update(renamed, 'alice', { memberNames: { alice: 'alice', bob: 'Impersonated' } })));
+  await assertFails(setDoc(ref, update(renamed, 'bob', { memberNames: renamed.memberNames, memberIds: ['bob'], ownerId: 'bob' })));
+});
+
+test('a trip creator and join applicant must use their saved nickname', async () => {
+  const alice = client('alice');
+  await assertFails(setDoc(doc(alice, 'sharedTrips', 'trip-a'), { ...payload(), memberNames: { alice: 'Other identity' } }));
+  await seed('trip-a', 'alice', ['alice'], token);
+  await assertFails(setDoc(doc(client('charlie'), 'sharedTrips', 'trip-a', 'requests', 'charlie'), { ...request(), displayName: 'Other identity' }));
+  await assertSucceeds(setDoc(doc(client('charlie'), 'sharedTrips', 'trip-a', 'requests', 'charlie'), request()));
 });
