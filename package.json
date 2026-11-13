@@ -7,6 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "dev:mobile": "vite --host 0.0.0.0 --port 5174 --strictPort",
     "typecheck": "tsc --noEmit",
+    "measure:startup": "node scripts/measure-startup.mjs",
     "test": "tsx --test tests/*.test.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1"

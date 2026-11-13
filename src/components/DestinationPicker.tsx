@@ -4,7 +4,7 @@ import { countries, popularCountryCodes, filterCities, citySearchQuery, parseDes
 import { searchPlaces, type SearchResult } from '../services/search';
 import type { TripDestination } from '../types';
 import { hasCoordinates } from '../services/geo';
-import { matchingCity } from '../services/tripLocation';
+import { matchingCity } from '../services/matchingCity';
 
 export function DestinationPicker({ value, destination, onChange, onResolving }: { value: string; destination?: TripDestination; onChange: (value: string, destination?: TripDestination) => void; onResolving: (busy: boolean) => void }) {
   const [initial] = useState(() => parseDestination(value));

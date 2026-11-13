@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { matchingCity, tripCenter } from '../src/services/tripLocation.ts';
+import { matchingCity } from '../src/services/matchingCity.ts';
+import { tripCenter } from '../src/services/tripLocation.ts';
 import { parseDatabase, sampleDatabase } from '../src/data.ts';
 
 test('city matching accepts native city suffixes but refuses unrelated or ambiguous matches', () => {
