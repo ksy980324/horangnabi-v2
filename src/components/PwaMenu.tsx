@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, RefreshCw } from 'lucide-react';
-import { applyPwaUpdate, promptInstall, usePwa } from '../services/pwa';
+import { Download } from 'lucide-react';
+import { promptInstall, usePwa } from '../services/pwa';
 import { Modal } from './Modal';
 
 export function PwaMenu({ closeMenu }: { closeMenu: () => void }) {
   const pwa = usePwa();
   const [helpOpen, setHelpOpen] = useState(false);
   const [message, setMessage] = useState('');
-  const [busy, setBusy] = useState(false);
   const isAppleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   useEffect(() => {
     if (!helpOpen) return;
@@ -28,10 +27,6 @@ export function PwaMenu({ closeMenu }: { closeMenu: () => void }) {
   if (!pwa.available) return null;
   return <>
     {!pwa.installed && <button type="button" onClick={() => void install()}><Download size={15} aria-hidden="true"/>홈 화면에 설치</button>}
-    {pwa.updateReady && <button type="button" disabled={busy} onClick={() => {
-      if (!confirm('입력 중인 내용을 저장했나요? 새 버전을 적용하면 화면이 새로 열려요.')) return;
-      setBusy(true); applyPwaUpdate();
-    }}><RefreshCw size={15} aria-hidden="true"/>{busy ? '새 버전 여는 중' : '새 버전 적용'}</button>}
     {helpOpen && createPortal(<Modal title="호랑나비를 홈 화면에" onClose={closeHelp}>
       <div className="pwa-help">
         <p>나비 아이콘을 누르면 호랑나비를 바로 열 수 있어요.</p>

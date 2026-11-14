@@ -10,6 +10,7 @@ import { InviteJoin } from './TripSharing';
 import { inviteTokenFromHash, type TripAccess } from '../services/tripMembers';
 import { clearSharedOfflineTrip } from '../services/offlineTrip';
 import { SiteHeader, type HeaderAction } from './SiteHeader';
+import { usePwaUpdateBlocker } from '../services/pwa';
 import type { Database } from '../types';
 
 export type SharedData = { userId: string; nickname: string; access: Map<string, TripAccess>; db: Database; revisions: Map<string, number> };
@@ -24,6 +25,7 @@ export default function SharedWorkspace({ onBack, children }: { onBack?: () => v
   const [profileError, setProfileError] = useState('');
   const [profileEditing, setProfileEditing] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  usePwaUpdateBlocker(busy || profileSaving);
   const [setupPending, setSetupPending] = useState(false);
   const [nameSyncError, setNameSyncError] = useState('');
   const [token, setToken] = useState(() => inviteTokenFromHash(location.hash));

@@ -3,6 +3,7 @@ import { Check, Luggage, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { uid } from '../data';
 import type { PackingItem } from '../types';
 import { packingCheckedBy, packingCompletedCount } from '../services/packing';
+import { usePwaUpdateBlocker } from '../services/pwa';
 
 type Props = { items: PackingItem[]; onSave: (item: PackingItem) => Promise<boolean>; onDelete: (id: string) => void; onCheck: (item: PackingItem, checked: boolean) => void; shared?: { userId: string; memberIds: readonly string[] }; busy?: boolean };
 export function PackingList({ items, onSave, onDelete, onCheck, shared, busy }: Props) {
@@ -11,6 +12,7 @@ export function PackingList({ items, onSave, onDelete, onCheck, shared, busy }: 
   const [draft, setDraft] = useState('');
   const [originalName, setOriginalName] = useState('');
   const [error, setError] = useState('');
+  usePwaUpdateBlocker(!!name.trim() || editingId !== undefined || !!busy);
   const completed = items.filter(item => shared ? packingCompletedCount(item, shared.memberIds) === shared.memberIds.length : item.completed).length;
   async function add(event: FormEvent) {
     event.preventDefault();

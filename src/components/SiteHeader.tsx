@@ -31,7 +31,7 @@ export function SiteHeader({ onHome, actions = [], menuContent }: { onHome?: () 
   return <header className="site-header">
     <div className="header-inner">
       {onHome ? <button className="brand" onClick={onHome}>{brand}</button> : <div className="brand header-brand-label">{brand}</div>}
-      {actions.length || menuContent || (pwa.available && (!pwa.installed || pwa.updateReady)) ? <div className="header-menu" ref={menu} onKeyDown={event => {
+      {actions.length || menuContent || (pwa.available && !pwa.installed) ? <div className="header-menu" ref={menu} onKeyDown={event => {
         if (event.key === 'Escape' && open) { event.preventDefault(); close(true); }
       }}>
         <button type="button" className="header-menu-toggle" aria-label="호랑나비 메뉴" aria-expanded={open} aria-controls={menuId} ref={toggle} onClick={() => setOpen(value => !value)}><Menu size={22} aria-hidden="true"/></button>

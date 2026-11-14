@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { Download } from 'lucide-react';
 import { offlinePageUrl, readOfflineTrip, saveOfflineTrip } from '../services/offlineTrip';
 import type { Trip } from '../types';
+import { usePwaUpdateBlocker } from '../services/pwa';
 
 export function useOfflineMenu(trip?: Trip, owner?: string) {
   const [saved, setSaved] = useState(readOfflineTrip);
   const [busy, setBusy] = useState(false);
+  usePwaUpdateBlocker(busy);
   const [message, setMessage] = useState('');
   const request = useRef<AbortController | null>(null);
   const current = saved?.tripId === trip?.id && saved?.owner === owner;

@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { UserRound } from 'lucide-react';
 import { normalizeNickname, NICKNAME_MAX_LENGTH } from '../services/userProfile';
+import { usePwaUpdateBlocker } from '../services/pwa';
 
 export function NicknameForm({ initial = '', required, busy, message, onSave, onCancel }: {
   initial?: string; required: boolean; busy: boolean; message?: string; onSave: (nickname: string) => Promise<void>; onCancel: () => void;
 }) {
   const [nickname, setNickname] = useState(initial);
   const [error, setError] = useState('');
+  usePwaUpdateBlocker(busy || nickname !== initial);
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy) return;

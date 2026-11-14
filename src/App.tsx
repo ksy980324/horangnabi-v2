@@ -12,6 +12,7 @@ import { SiteHeader, type HeaderAction } from './components/SiteHeader';
 import { SavedPlaces } from './components/SavedPlaces';
 import { scheduleSavedPlace } from './services/savedPlaces';
 import { PackingList } from './components/PackingList';
+import { usePwaUpdateBlocker } from './services/pwa';
 import { packingCompletedCount, savePackingItem, removePackingItem } from './services/packing';
 import type { SharedData } from './components/SharedWorkspace';
 import { firebaseConfig, firebaseConfigProvided } from './services/firebaseConfig';
@@ -91,6 +92,7 @@ function Planner({ shared, headerActions }: { shared?: SharedData; headerActions
     const next = reorderStop(trip, activeDay, id, target);
     if (next !== trip) void updateTrip(next);
   });
+  usePwaUpdateBlocker(saving || !!stopDrag.preview);
   const { activeId, focusStop, clearFocus } = useScheduleScroll(`${tripId}:${activeDay}:${view}`, visiblePlaces, mapSectionRef, !!tripEditor || !!stopDrag.preview || !!stopEditor || !!savedEditor || !!reservationEditor || !!expenseEditor || packingOpen || view === 'reservations' || view === 'expenses');
   const focusedStop = activeId ?? selected;
   useEffect(() => {
