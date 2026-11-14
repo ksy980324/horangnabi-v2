@@ -88,7 +88,7 @@ export function Recommendations({trip,initialDate,busy,status,onClose,onAdd}:{tr
             <RecommendationPhoto photo={place.photo} name={title}/><span className="badge">추천 {shown.start+i+1} · {place.category}</span>
             <h3><button className="recommendation-title" aria-label={title+' 지도에서 위치 보기'} onClick={()=>{setSelected(place.id);mapRef.current?.scrollIntoView({behavior:'smooth',block:'nearest'});}}>{title}</button></h3>
             {names[place.id]&&names[place.id]!==place.name&&<small className="muted">{place.name} · 자동 번역</small>}
-            <p className="recommendation-reason">{place.rating!==undefined?'★ '+place.rating.toFixed(1)+' · 리뷰 '+(place.ratingCount??0).toLocaleString()+'개':'평점 정보 없음'} · Google 인기도순</p><p className="muted">{place.address}</p>
+            <p className="recommendation-reason">{place.rating!==undefined?'★ '+place.rating.toFixed(1)+' · 리뷰 '+(place.ratingCount??0).toLocaleString()+'개':'평점 정보 없음'} · Google 인기도순</p>
             <a href={place.mapUrl} target="_blank" rel="noopener noreferrer">Google 지도에서 확인</a>
             {included?<p className="recommendation-reason">일정 또는 보관함에 추가했어요.</p>:<div className="recommendation-actions"><button className="secondary" disabled={busy||loading} onClick={()=>void add(place,false)}>보관함에 저장</button><button className="primary" disabled={busy||loading||!target} onClick={()=>void add(place,true)}>{target?.slice(5).replace('-','.')} 일정에 추가</button></div>}
           </li>;
