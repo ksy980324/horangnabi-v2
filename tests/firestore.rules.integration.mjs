@@ -44,7 +44,7 @@ test('activity commits with the trip, retains concurrent packing actors and foll
     const current = (await transaction.get(ref(alice))).data();
     const next = { ...current.trip, packingItems: [{ id: 'passport', name: 'Passport', completed: false, completedBy: [] }] };
     transaction.set(ref(alice), update(current, 'alice', { trip: recordTripActivity(current.trip, next, initialStamp) }));
-  }));
+  })).catch(error => { throw new Error('Initial activity transaction: ' + error.message, { cause: error }); });
   await Promise.all([['alice', alice], ['bob', bob]].map(async ([actor, db]) => {
     const stamp = { id: 'check-' + actor, actorId: actor, actorName: actor, at: Date.now() };
     await assertSucceeds(runTransaction(db, async transaction => {
@@ -53,7 +53,7 @@ test('activity commits with the trip, retains concurrent packing actors and foll
       const completedBy = [...new Set([...item.completedBy, actor])];
       const next = { ...current.trip, packingItems: [{ ...item, completedBy, completed: current.memberIds.every(id => completedBy.includes(id)) }] };
       transaction.set(ref(db), update(current, actor, { trip: recordTripActivity(current.trip, next, stamp) }));
-    }));
+    })).catch(error => { throw new Error('Concurrent activity transaction for ' + actor + ': ' + error.message, { cause: error }); });
   }));
   const latest = (await assertSucceeds(getDoc(ref(bob)))).data();
   assert.equal(latest.trip.activityLog.length, 3);
@@ -62,7 +62,7 @@ test('activity commits with the trip, retains concurrent packing actors and foll
   assert.deepEqual(new Set(latest.trip.packingItems[0].completedBy), new Set(['alice', 'bob']));
   assert.equal(latest.trip.packingItems[0].completed, true);
   await assertFails(getDoc(ref(client('charlie'))));
-  await assertSucceeds(setDoc(ref(alice), update(latest, 'alice', { memberIds: ['alice'], memberNames: { alice: 'alice' } })));
+  await assertSucceeds(setDoc(ref(alice), update(latest, 'alice', { memberIds: ['alice'], memberNames: { alice: 'alice' } }))).catch(error => { throw new Error('Remove member preserving activity: ' + error.message, { cause: error }); });
   await assertFails(getDoc(ref(bob)));
   assert.deepEqual((await getDoc(ref(alice))).data().trip.activityLog, latest.trip.activityLog);
 });
