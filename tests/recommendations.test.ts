@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { addRecommendation, alreadyIncluded, recommendationAnchor, type Recommendation } from '../src/services/recommendations';
+import { addRecommendation, alreadyIncluded, recommendationAnchor, recommendationSearchDate, type Recommendation } from '../src/services/recommendations';
 import { parseDatabase } from '../src/data';
 import type { Trip } from '../src/types';
 const trip:Trip={id:'trip',name:'파리 여행',region:'프랑스 · 파리',destination:{countryCode:'FR',cityName:'파리',lat:48.85,lng:2.35},start:'2026-11-16',end:'2026-11-18',stops:[]};
@@ -11,6 +11,8 @@ test('recommendations work globally and use last located stop, city, then anothe
   assert.equal(recommendationAnchor(located,trip.start),located.stops[0]);
   assert.equal(recommendationAnchor({...located,destination:undefined},trip.end),located.stops[0]);
   assert.equal(recommendationAnchor({...trip,destination:undefined},trip.start),undefined);
+  assert.equal(recommendationSearchDate(new Date(2026,10,14,0,5)),'2026-11-14');
+  assert.equal(recommendationAnchor(located,recommendationSearchDate(new Date(2026,10,14))),trip.destination);
 });
 test('shared and device additions preserve travel data and exclude duplicate names or place links',()=>{
   const base={...trip,packingItems:[{id:'pack',name:'여권',completed:false}]};

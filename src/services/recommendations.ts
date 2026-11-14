@@ -7,6 +7,9 @@ export type Recommendation = {
   mapUrl: string; rating?: number; ratingCount?: number;
   photo?: { resource: string; authors: { name: string; url?: string }[]; url?: string };
 };
+export function recommendationSearchDate(now=new Date()) {
+  return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+}
 export function recommendationAnchor(trip: Trip, date: string) {
   return trip.stops.filter(s => s.date === date && hasCoordinates(s)).at(-1)
     ?? (trip.destination && hasCoordinates(trip.destination) ? trip.destination : trip.stops.find(hasCoordinates));
