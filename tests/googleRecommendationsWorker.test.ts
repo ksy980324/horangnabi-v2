@@ -51,7 +51,7 @@ async function signedToken() {
   return {token:header+'.'+payload+'.'+Buffer.from(signature).toString('base64url'),jwk:{...await crypto.subtle.exportKey('jwk',keys.publicKey),kid:'test-key'}};
 }
 test('authenticated requests use exact fields and bounded requests; denied quotas never reach Google',async context=>{
-  const {token,jwk}=await signedToken();let googleCalls=0,deny=false,googleFails=false;
+  const {token,jwk}=await signedToken();let googleCalls=0,deny=false,googleFails=false,budgetFails=false;
   context.mock.method(globalThis,'fetch',async(input:RequestInfo|URL,init?:RequestInit)=>{
     const url=String(input);
     if(url.includes('service_accounts')) return Response.json({keys:[jwk]});
@@ -66,7 +66,7 @@ test('authenticated requests use exact fields and bounded requests; denied quota
     assert.equal(body.languageCode,'ko');assert.ok(!(init?.headers as Record<string,string>)['X-Goog-FieldMask'].includes('*'));
     return Response.json({places:[]});
   });
-  const configured={...env,RECOMMENDATION_BUDGET:{idFromName:()=>'',get:()=>({fetch:async()=>new Response(null,{status:deny?429:204})})}};
+  const configured={...env,RECOMMENDATION_BUDGET:{idFromName:()=>'',get:()=>({fetch:async()=>{if(budgetFails) throw new Error('private infrastructure detail');return new Response(null,{status:deny?429:204});}})}};
   const request=()=>makeRequest('/recommendations?lat=35&lng=133&kind=cafe',token);
   const result=await worker.fetch(request(),configured);
   assert.equal(result.status,200);assert.equal(result.headers.get('Cache-Control'),'no-store');assert.equal(googleCalls,1);
@@ -76,6 +76,8 @@ test('authenticated requests use exact fields and bounded requests; denied quota
   assert.equal(photo.status,200);assert.equal(photo.headers.get('Cache-Control'),'no-store');assert.equal(photo.headers.get('Content-Type'),'image/jpeg');
   assert.equal(googleCalls,3);
   googleFails=true;assert.equal((await worker.fetch(request(),configured)).status,429);assert.equal(googleCalls,4);
+  budgetFails=true;const unavailable=await worker.fetch(request(),configured);
+  assert.equal(unavailable.status,503);assert.deepEqual(await unavailable.json(),{reason:'budget-unavailable'});assert.equal(googleCalls,4);
   assert.equal(await verifyFirebaseToken(token,'another-project'),false);
   assert.equal(await verifyFirebaseToken(token.slice(0,-10)+'tampered','test-project'),false);
 });

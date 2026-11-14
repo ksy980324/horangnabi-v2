@@ -1,4 +1,5 @@
 import type { Recommendation } from './recommendations';
+import { recommendationErrorMessage } from './recommendationErrors';
 export type RecommendationKind = 'tourism' | 'restaurant' | 'cafe';
 export function recommendationsEndpoint() {
   const value = import.meta.env?.VITE_MAPS_LINK_RESOLVER_URL?.trim();
@@ -11,10 +12,7 @@ async function authorizedFetch(url: URL, signal: AbortSignal) {
   if (!auth?.currentUser) throw new Error('Google 로그인 후 공유 여행에서 추천을 이용해 주세요.');
   const token = await auth.currentUser.getIdToken();
   const response = await fetch(url, { headers: { Authorization: 'Bearer '+token }, signal, cache:'no-store' });
-  if (response.status === 429) throw new Error('무료 운영을 위한 오늘 또는 이번 달 조회 한도에 도달했어요. 일정 편집은 계속할 수 있어요.');
-  if (response.status === 503 || response.status === 404) throw new Error('추천 서버 설정이 필요해요. Places API 키와 서버 배포를 확인해 주세요.');
-  if (response.status === 401) throw new Error('로그인이 만료되었어요. 다시 로그인해 주세요.');
-  if (!response.ok) throw new Error('Google 장소를 조회하지 못했어요. API 활성화·키 제한을 확인하거나 잠시 후 다시 시도해 주세요.');
+  if (!response.ok) throw new Error(recommendationErrorMessage(response.status,await response.json().catch(()=>null)));
   return response;
 }
 export async function searchGoogleRecommendations(point: {lat:number;lng:number}, kind: RecommendationKind, signal: AbortSignal): Promise<Recommendation[]> {

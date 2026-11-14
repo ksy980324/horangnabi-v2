@@ -54,3 +54,6 @@ wrangler.jsonc의 FIREBASE_PROJECT_ID는 현재 앱 프로젝트 horangnami-2f9f
 - https://developers.google.com/maps/documentation/places/web-service/place-photos
 - https://developers.google.com/maps/documentation/places/web-service/policies
 - https://developers.cloudflare.com/durable-objects/platform/pricing/
+
+## 조회 오류 확인
+설정 화면이 정상이어도 Worker secret에 다른 키가 등록되었거나, 결제·서버 저장소·연결 문제가 있을 수 있다. 앱은 Google 응답의 HTTP 상태와 허용한 오류 코드만 표시한다. SERVICE_DISABLED는 키 프로젝트의 API 활성화, API_KEY_SERVICE_BLOCKED는 키의 API 허용, BILLING_DISABLED는 결제 연결을 뜻한다. BUDGET_UNAVAILABLE은 서버 사용량 저장소 실패로 Google 호출 전 차단한 상태다. 원본 오류 메시지·키·프로젝트 메타데이터는 노출하지 않는다. 기존 Maps JavaScript API의 지도 로드 일/분 제한은 Places API (New)의 주변 검색 한도와 별개다.

@@ -1,4 +1,5 @@
 import type { Recommendation } from '../../src/services/recommendations.ts';
+import { safeProviderReason } from '../../src/services/recommendationErrors.ts';
 
 type Counter = { day:string; month:string; daily:number; monthly:number };
 export type BudgetStorage = {
@@ -78,7 +79,15 @@ export function parseGooglePlaces(value:unknown,kind:'tourism'|'restaurant'|'caf
     } satisfies Recommendation];
   }).slice(0,6);
 }
+export async function googleFailure(response:Response) {
+  // Google messages/metadata may contain identifiers. Return only an allowlisted reason and HTTP status.
+  const body=await response.json().catch(()=>null) as {error?:{details?:{reason?:unknown}[]}}|null;
+  const details=body?.error?.details;
+  const providerCode=Array.isArray(details)?details.map(detail=>safeProviderReason(detail?.reason)).find(Boolean):undefined;
+  return {reason:'google',providerStatus:response.status,...(providerCode?{providerCode}:{})};
+}
 export async function handleRecommendations(request:Request,env:RecommendationEnv,headers:Record<string,string>) {
+  headers={...headers,'X-Horangnabi-Recommendations':'2'};
   const reply=(body:object,status=200)=>Response.json(body,{status,headers});
   if(!env.GOOGLE_PLACES_API_KEY?.trim()||!env.FIREBASE_PROJECT_ID||!env.RECOMMENDATION_BUDGET) return reply({reason:'setup'},503);
   const endpoint=new URL(request.url), photo=endpoint.pathname==='/recommendation-photo';
@@ -87,17 +96,19 @@ export async function handleRecommendations(request:Request,env:RecommendationEn
   if(photo?!photoResource.test(resource)||resource.length>4000:!query) return reply({reason:'input'},400);
   const token=request.headers.get('Authorization')?.replace(/^Bearer /,'')??'';
   if(!await verifyFirebaseToken(token,env.FIREBASE_PROJECT_ID)) return reply({reason:'auth'},401);
+  let stage:'budget'|'google'='budget';
   try {
     const budget=env.RECOMMENDATION_BUDGET.get(env.RECOMMENDATION_BUDGET.idFromName('global-v1'));
     // Reserve BEFORE the external call, including failed requests. Never retry/refund automatically.
     const allowance=await budget.fetch(new Request('https://budget/'+(photo?'photo':'search'),{method:'POST'}));
-    if(!allowance.ok) return reply({reason:'quota'},allowance.status===429?429:503);
+    if(!allowance.ok) return reply({reason:allowance.status===429?'quota':'budget-unavailable'},allowance.status===429?429:503);
+    stage='google';
     const key=env.GOOGLE_PLACES_API_KEY.trim(), signal=AbortSignal.timeout(10000);
     if(photo) {
       const url=new URL('https://places.googleapis.com/v1/'+resource+'/media');
       url.search=new URLSearchParams({maxWidthPx:'640',skipHttpRedirect:'true'}).toString();
       const response=await fetch(url,{headers:{'X-Goog-Api-Key':key},signal,redirect:'error',cache:'no-store'});
-      if(!response.ok) {await response.body?.cancel();return reply({reason:'google'},response.status===429?429:502);}
+      if(!response.ok) return reply(await googleFailure(response),response.status===429?429:502);
       const data=await response.json() as {photoUri?:string};
       const image=data.photoUri?new URL(data.photoUri):undefined;
       if(!image||image.protocol!=='https:'||!(image.hostname==='googleusercontent.com'||image.hostname.endsWith('.googleusercontent.com'))) return reply({reason:'photo'},502);
@@ -110,7 +121,7 @@ export async function handleRecommendations(request:Request,env:RecommendationEn
         'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos'},
       body:JSON.stringify({includedTypes:[query!.kind==='tourism'?'tourist_attraction':query!.kind],maxResultCount:6,rankPreference:'POPULARITY',languageCode:'ko',locationRestriction:{circle:{center:{latitude:query!.lat,longitude:query!.lng},radius:5000}}}),
     });
-    if(!response.ok) {await response.body?.cancel();return reply({reason:'google'},response.status===429?429:502);}
+    if(!response.ok) return reply(await googleFailure(response),response.status===429?429:502);
     return reply({places:parseGooglePlaces(await response.json(),query!.kind)});
-  } catch {return reply({reason:'unavailable'},502);}
+  } catch {return reply({reason:stage==='budget'?'budget-unavailable':'google-unavailable'},stage==='budget'?503:502);}
 }
