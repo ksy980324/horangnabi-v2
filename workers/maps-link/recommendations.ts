@@ -87,7 +87,7 @@ export async function googleFailure(response:Response) {
   return {reason:'google',providerStatus:response.status,...(providerCode?{providerCode}:{})};
 }
 export async function handleRecommendations(request:Request,env:RecommendationEnv,headers:Record<string,string>) {
-  headers={...headers,'X-Horangnabi-Recommendations':'2'};
+  headers={...headers,'X-Horangnabi-Recommendations':'3'};
   const reply=(body:object,status=200)=>Response.json(body,{status,headers});
   if(!env.GOOGLE_PLACES_API_KEY?.trim()||!env.FIREBASE_PROJECT_ID||!env.RECOMMENDATION_BUDGET) return reply({reason:'setup'},503);
   const endpoint=new URL(request.url), photo=endpoint.pathname==='/recommendation-photo';
@@ -107,17 +107,19 @@ export async function handleRecommendations(request:Request,env:RecommendationEn
     if(photo) {
       const url=new URL('https://places.googleapis.com/v1/'+resource+'/media');
       url.search=new URLSearchParams({maxWidthPx:'640',skipHttpRedirect:'true'}).toString();
-      const response=await fetch(url,{headers:{'X-Goog-Api-Key':key},signal,redirect:'error',cache:'no-store'});
+      const response=await fetch(url,{headers:{'X-Goog-Api-Key':key},signal,redirect:'manual',cache:'no-store'});
       if(!response.ok) return reply(await googleFailure(response),response.status===429?429:502);
       const data=await response.json() as {photoUri?:string};
       const image=data.photoUri?new URL(data.photoUri):undefined;
       if(!image||image.protocol!=='https:'||!(image.hostname==='googleusercontent.com'||image.hostname.endsWith('.googleusercontent.com'))) return reply({reason:'photo'},502);
-      const result=await fetch(image,{signal,redirect:'error',cache:'no-store'});
+      const result=await fetch(image,{signal,redirect:'manual',cache:'no-store'});
       if(!result.ok||!result.headers.get('Content-Type')?.startsWith('image/')) {await result.body?.cancel();return reply({reason:'photo'},502);}
       return new Response(result.body,{headers:{...headers,'Content-Type':result.headers.get('Content-Type')!,'X-Content-Type-Options':'nosniff'}});
     }
     const response=await fetch('https://places.googleapis.com/v1/places:searchNearby',{
-      method:'POST',signal,redirect:'error',headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,
+      // Workers rejects redirect:'error' before network I/O. Manual mode leaves 3xx
+      // responses to the existing !ok check and never forwards our key to redirects.
+      method:'POST',signal,redirect:'manual',headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,
         'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos'},
       body:JSON.stringify({includedTypes:[query!.kind==='tourism'?'tourist_attraction':query!.kind],maxResultCount:6,rankPreference:'POPULARITY',languageCode:'ko',locationRestriction:{circle:{center:{latitude:query!.lat,longitude:query!.lng},radius:5000}}}),
     });

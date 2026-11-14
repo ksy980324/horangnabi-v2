@@ -4,6 +4,11 @@
 
 ## 현재 구현
 
+### Google 추천 서버 요청 호환성 수정
+- GOOGLE_UNAVAILABLE의 직접 원인이 되는 redirect:error 사용을 찾았다. Cloudflare Workers는 이 모드를 지원하지 않아 네트워크 요청 전 TypeError를 발생시킨다. 검색·사진 메타데이터·이미지 요청을 모두 manual로 변경하고, 3xx 응답은 실패로 처리해 키를 리디렉션 대상으로 전달하지 않는다.
+- 타입 검사·단위 테스트 112개·프로덕션 빌드를 통과했다. 검색과 사진 요청의 Workers 지원 모드, 3xx 응답 미추적, 이미지 호스트에 API 키 미전달을 모의 응답으로 검증했다. Google 실제 결과와 모바일 화면 검증은 사용자 재조회가 필요하다.
+- 기존 API 키·프로젝트 설정·Durable Object 이름과 일/월 카운터는 변경하거나 초기화하지 않는다. 공식 근거: https://developers.cloudflare.com/workers/runtime-apis/request/
+
 ### 추천 오류 원인 구분
 - 사용자 화면에서 Places API(New) 활성화·서버 키 제한·주변 검색 한도가 정상임을 확인했다. 기존 지도 일/분 제한을 원인으로 단정하지 않는다.
 - Google 거절의 HTTP 상태와 허용된 오류 코드만 전달해 API 미활성화·결제 미연결·잘못된 키·키 제한·Google quota를 구분한다. 사용량 저장소 실패와 Google 연결 실패도 분리한다. 원본 오류 메시지·API 키·프로젝트 메타데이터는 응답에 포함하지 않는다.

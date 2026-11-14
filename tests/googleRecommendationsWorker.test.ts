@@ -51,13 +51,18 @@ async function signedToken() {
   return {token:header+'.'+payload+'.'+Buffer.from(signature).toString('base64url'),jwk:{...await crypto.subtle.exportKey('jwk',keys.publicKey),kid:'test-key'}};
 }
 test('authenticated requests use exact fields and bounded requests; denied quotas never reach Google',async context=>{
-  const {token,jwk}=await signedToken();let googleCalls=0,deny=false,googleFails=false,budgetFails=false;
+  const {token,jwk}=await signedToken();let googleCalls=0,deny=false,googleFails=false,budgetFails=false,redirectSearch=false,redirectPhoto=false,redirectImage=false;
   context.mock.method(globalThis,'fetch',async(input:RequestInfo|URL,init?:RequestInit)=>{
     const url=String(input);
     if(url.includes('service_accounts')) return Response.json({keys:[jwk]});
     googleCalls++;
-    if(url.includes('/photos/')) return Response.json({photoUri:'https://lh3.googleusercontent.com/photo'});
-    if(url.startsWith('https://lh3.googleusercontent.com/')) return new Response('image-bytes',{headers:{'Content-Type':'image/jpeg'}});
+    assert.equal(init?.redirect,'manual','all Places and photo requests must use a Workers-supported redirect mode');
+    if(url.includes('/photos/')) return redirectPhoto?Response.redirect('https://untrusted.example/'):Response.json({photoUri:'https://lh3.googleusercontent.com/photo'});
+    if(url.startsWith('https://lh3.googleusercontent.com/')) {
+      assert.equal(new Headers(init?.headers).has('X-Goog-Api-Key'),false);
+      return redirectImage?Response.redirect('https://untrusted.example/'):new Response('image-bytes',{headers:{'Content-Type':'image/jpeg'}});
+    }
+    if(redirectSearch) return Response.redirect('https://untrusted.example/');
     if(googleFails) return new Response(null,{status:429});
     assert.equal(url,'https://places.googleapis.com/v1/places:searchNearby');
     assert.equal((init?.headers as Record<string,string>)['X-Goog-Api-Key'],'fake-key');
@@ -76,8 +81,15 @@ test('authenticated requests use exact fields and bounded requests; denied quota
   assert.equal(photo.status,200);assert.equal(photo.headers.get('Cache-Control'),'no-store');assert.equal(photo.headers.get('Content-Type'),'image/jpeg');
   assert.equal(googleCalls,3);
   googleFails=true;assert.equal((await worker.fetch(request(),configured)).status,429);assert.equal(googleCalls,4);
+  googleFails=false;redirectSearch=true;
+  const redirected=await worker.fetch(request(),configured);
+  assert.equal(redirected.status,502);assert.deepEqual(await redirected.json(),{reason:'google',providerStatus:302});assert.equal(googleCalls,5);
+  redirectPhoto=true;
+  assert.equal((await worker.fetch(makeRequest('/recommendation-photo?resource=places/abc/photos/xyz',token),configured)).status,502);assert.equal(googleCalls,6);
+  redirectPhoto=false;redirectImage=true;
+  assert.equal((await worker.fetch(makeRequest('/recommendation-photo?resource=places/abc/photos/xyz',token),configured)).status,502);assert.equal(googleCalls,8);
   budgetFails=true;const unavailable=await worker.fetch(request(),configured);
-  assert.equal(unavailable.status,503);assert.deepEqual(await unavailable.json(),{reason:'budget-unavailable'});assert.equal(googleCalls,4);
+  assert.equal(unavailable.status,503);assert.deepEqual(await unavailable.json(),{reason:'budget-unavailable'});assert.equal(googleCalls,8);
   assert.equal(await verifyFirebaseToken(token,'another-project'),false);
   assert.equal(await verifyFirebaseToken(token.slice(0,-10)+'tampered','test-project'),false);
 });
