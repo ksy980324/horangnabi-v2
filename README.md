@@ -114,5 +114,8 @@ docs/PROGRESS.md          구현 상태와 검증 이력
 ## GitHub Pages
 main push 또는 수동 실행 시 GitHub Actions가 설치 → 검사/테스트 → 지도 설정 확인 → 빌드 → dist 업로드 → Pages 배포를 진행합니다. 저장소 경로는 Pages 메타데이터에 맞춰 설정합니다. 지도 Secret/Variable 등록 후 실제 공개 배포와 접속을 확인했습니다. [배포 안내](docs/GITHUB_PAGES_SETUP.md)를 참고하세요. localStorage 여행 데이터는 서버로 자동 업로드되지 않습니다.
 
+## 홈 화면에 설치
+PWA 설치 지원을 추가했습니다. 배포 후 오른쪽 상단 메뉴의 **홈 화면에 설치**를 사용하세요. iPhone은 Safari의 공유 → **홈 화면에 추가**, Android는 Chrome의 **앱 설치**를 이용합니다. Google 로그인이 다시 필요할 수 있습니다. 오프라인으로 볼 여행은 메뉴의 **오프라인용으로 저장**을 먼저 눌러 주세요. [설치·업데이트 안내](docs/PWA_SETUP.md)를 참고하세요.
+
 ## 다음 단계
-장소 보관함·준비물·Pages 배포를 구현했습니다. Firebase 여행별 초대·승인과 실시간 공동 편집을 구현했으며 PWA 설치 지원이 남아 있습니다. Codex 작업 시작 시 `AGENTS.md`와 `docs/PRODUCT_SPEC.md`를 반드시 읽으세요.
+장소 보관함·준비물·여행별 초대·승인·실시간 공동 편집과 PWA 설치 지원을 구현했습니다. 실제 휴대폰 설치와 설치한 화면의 Google 로그인·공동 편집 확인이 다음 단계입니다. Codex 작업 시작 시 `AGENTS.md`와 `docs/PRODUCT_SPEC.md`를 반드시 읽으세요.
