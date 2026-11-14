@@ -42,6 +42,7 @@ test('recommendation input and Google responses validate coordinates, photo reso
   assert.equal(places[0].category,'카페');assert.equal(places[0].photo?.authors[0].url,undefined);
   assert.equal(places[0].photo?.authors[1].url,'https://www.google.com/maps/contrib/123');
   assert.equal(places[0].rating,4.5);assert.deepEqual(parseGooglePlaces({places:[{id:'bad'}]},'tourism'),[]);
+  assert.equal(parseGooglePlaces({places:Array.from({length:25},(_,i)=>({id:'place'+i,displayName:{text:'Place '+i},location:{latitude:13.75,longitude:100.5}}))},'tourism').length,20);
 });
 async function signedToken() {
   const keys=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
@@ -67,7 +68,7 @@ test('authenticated requests use exact fields and bounded requests; denied quota
     assert.equal(url,'https://places.googleapis.com/v1/places:searchNearby');
     assert.equal((init?.headers as Record<string,string>)['X-Goog-Api-Key'],'fake-key');
     const body=JSON.parse(init?.body as string);
-    assert.equal(body.maxResultCount,6);assert.equal(body.rankPreference,'POPULARITY');assert.equal(body.locationRestriction.circle.radius,5000);
+    assert.equal(body.maxResultCount,20);assert.equal(body.rankPreference,'POPULARITY');assert.equal(body.locationRestriction.circle.radius,5000);
     assert.equal(body.languageCode,'ko');assert.ok(!(init?.headers as Record<string,string>)['X-Goog-FieldMask'].includes('*'));
     return Response.json({places:[]});
   });

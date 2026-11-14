@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { firebaseConfig } from './firebaseConfig';
 
@@ -12,8 +12,9 @@ export function session(userId: string) {
   return { firestore, user: auth.currentUser };
 }
 
-export function googleSignIn() {
+export async function googleSignIn() {
   if (!auth) throw new Error('Firebase 설정을 확인해 주세요.');
+  await setPersistence(auth,browserLocalPersistence);
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
   return signInWithPopup(auth, provider);

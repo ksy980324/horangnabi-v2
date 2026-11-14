@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { addRecommendation, alreadyIncluded, recommendationAnchor, recommendationSearchDate, type Recommendation } from '../src/services/recommendations';
+import { addRecommendation, alreadyIncluded, recommendationAnchor, recommendationSearchDate, recommendationPage, type Recommendation } from '../src/services/recommendations';
 import { parseDatabase } from '../src/data';
 import type { Trip } from '../src/types';
 const trip:Trip={id:'trip',name:'파리 여행',region:'프랑스 · 파리',destination:{countryCode:'FR',cityName:'파리',lat:48.85,lng:2.35},start:'2026-11-16',end:'2026-11-18',stops:[]};
 const place:Recommendation={id:'abc',name:'에펠탑',address:'Paris',lat:48.858,lng:2.294,category:'관광',mapUrl:'https://www.google.com/maps/search/?api=1&query_place_id=abc',rating:4.7,ratingCount:100,photo:{resource:'places/abc/photos/xyz',authors:[{name:'Author'}]}};
+test('one result list paginates as 6/6/6/2 without dropping or repeating places',()=>{
+  const places=Array.from({length:20},(_,index)=>({...place,id:String(index)}));
+  assert.deepEqual([0,1,2,3].map(index=>recommendationPage(places,index).items.length),[6,6,6,2]);
+  assert.deepEqual([0,1,2,3].flatMap(index=>recommendationPage(places,index).items.map(place=>place.id)),places.map(place=>place.id));
+  assert.equal(recommendationPage(places,99).index,3);assert.equal(recommendationPage(places,-1).index,0);
+  assert.equal(recommendationPage([],0).count,0);assert.equal(recommendationPage(places,NaN).index,0);
+});
 test('recommendations work globally and use last located stop, city, then another trip stop',()=>{
   assert.equal(recommendationAnchor(trip,trip.start),trip.destination);
   const located={...trip,stops:[{id:'stop',name:'숙소',address:'',lat:48,lng:2,date:trip.start,time:'',category:'숙소' as const,memo:''}]};

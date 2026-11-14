@@ -1,4 +1,5 @@
 import { addRecommendation } from './services/recommendations';
+import { readPlannerLocation, savePlannerLocation } from './services/plannerLocation';
 import { TripMembers } from './components/TripMembers';
 import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowDown, ArrowUp, Plus, MapPin, CalendarDays, Pencil, Trash2, Compass, Download, Upload, Maximize2, GripVertical, Copy, Users } from 'lucide-react';
@@ -27,7 +28,7 @@ import { expenseLimit } from './services/expenses';
 import { useOfflineMenu } from './hooks/useOfflineMenu';
 
 type PlannerEditor = { kind: 'trip' | 'stop' | 'saved' | 'reservation' | 'expense' | 'sharing' | 'recommendations'; id?: string; copy?: boolean };
-type PlannerEntry = { scope: string; tripId?: string; editor?: PlannerEditor & { key: string } };
+type PlannerEntry = { scope: string; tripId?: string; restored?:boolean; editor?: PlannerEditor & { key: string } };
 
 const firebaseConfigured = Boolean(firebaseConfig);
 const Recommendations = lazy(() => import('./components/Recommendations').then(module => ({ default: module.Recommendations })));
@@ -60,13 +61,14 @@ function Planner({ shared, headerActions }: { shared?: SharedData; headerActions
   const editorRevision = useRef<number | undefined>(undefined);
   const editorTrip = useRef<Trip | undefined>(undefined);
   const [saving, setSaving] = useState(false);
-  const [tripId, setTripId] = useState<string>(), [day, setDay] = useState(''), [selected, setSelected] = useState<string>(), [fit, setFit] = useState(0);
+  const [restoredLocation]=useState(()=>readPlannerLocation(initial.db,shared?.userId));
+  const [tripId, setTripId] = useState<string|undefined>(restoredLocation.tripId), [day, setDay] = useState(restoredLocation.day??''), [selected, setSelected] = useState<string>(), [fit, setFit] = useState(0);
   const [tripEditor, setTripEditor] = useState<Trip | 'new'>(), [stopEditor, setStopEditor] = useState<Stop | 'new'>(), [notice, setNotice] = useState('');
   const [sharingOpen, setSharingOpen] = useState(false);
   const [recommendationsOpen, setRecommendationsOpen] = useState(false);
   const [copyingStop, setCopyingStop] = useState(false);
-  const [view, setView] = useState<'schedule' | 'saved' | 'reservations' | 'expenses'>('schedule');
-  const [packingOpen, setPackingOpen] = useState(false);
+  const [view, setView] = useState<'schedule' | 'saved' | 'reservations' | 'expenses'>(restoredLocation.view??'schedule');
+  const [packingOpen, setPackingOpen] = useState(restoredLocation.packingOpen??false);
   const [savedEditor, setSavedEditor] = useState<SavedPlace | 'new'>();
   const [reservationEditor, setReservationEditor] = useState<Reservation | 'new'>();
   const [expenseEditor, setExpenseEditor] = useState<Expense | 'new'>();
@@ -98,6 +100,12 @@ function Planner({ shared, headerActions }: { shared?: SharedData; headerActions
   usePwaUpdateBlocker(saving || !!stopDrag.preview);
   const { activeId, focusStop, clearFocus } = useScheduleScroll(`${tripId}:${activeDay}:${view}`, visiblePlaces, mapSectionRef, recommendationsOpen || !!tripEditor || !!stopDrag.preview || !!stopEditor || !!savedEditor || !!reservationEditor || !!expenseEditor || packingOpen || view === 'reservations' || view === 'expenses');
   const focusedStop = activeId ?? selected;
+  useEffect(()=>{
+    savePlannerLocation({tripId:trip?.id,day,view,packingOpen},shared?.userId);
+  },[trip?.id,day,view,packingOpen,shared?.userId]);
+  useEffect(()=>{
+    window.history.replaceState({horangnabi:{scope:historyScope,tripId:restoredLocation.tripId,restored:!!restoredLocation.tripId}},'');
+  },[historyScope,restoredLocation.tripId]);
   useEffect(() => {
     if (shared || blocked) return;
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(localDb)); setStorageError(''); }
@@ -148,6 +156,7 @@ function Planner({ shared, headerActions }: { shared?: SharedData; headerActions
   }
   function returnToTrips() {
     const entry = window.history.state?.horangnabi as PlannerEntry | undefined;
+    if(entry?.scope===historyScope&&entry.restored) {const home={scope:historyScope};window.history.replaceState({horangnabi:home},'');applyEntry(home);return;}
     if (entry?.scope === historyScope && entry.tripId) window.history.back();
   }
   function closeEditor() {

@@ -77,7 +77,7 @@ export function parseGooglePlaces(value:unknown,kind:'tourism'|'restaurant'|'caf
       ratingCount:typeof p.userRatingCount==='number'&&Number.isInteger(p.userRatingCount)&&p.userRatingCount>=0?p.userRatingCount:undefined,
       photo:photo?.name&&photoResource.test(photo.name)?{resource:photo.name,authors:(photo.authorAttributions??[]).map(a=>({name:a.displayName??'사진 제공자',url:safeLink(a.uri)})),url:safeLink(photo.googleMapsUri)}:undefined,
     } satisfies Recommendation];
-  }).slice(0,6);
+  }).slice(0,20);
 }
 export async function googleFailure(response:Response) {
   // Google messages/metadata may contain identifiers. Return only an allowlisted reason and HTTP status.
@@ -87,7 +87,7 @@ export async function googleFailure(response:Response) {
   return {reason:'google',providerStatus:response.status,...(providerCode?{providerCode}:{})};
 }
 export async function handleRecommendations(request:Request,env:RecommendationEnv,headers:Record<string,string>) {
-  headers={...headers,'X-Horangnabi-Recommendations':'3'};
+  headers={...headers,'X-Horangnabi-Recommendations':'4'};
   const reply=(body:object,status=200)=>Response.json(body,{status,headers});
   if(!env.GOOGLE_PLACES_API_KEY?.trim()||!env.FIREBASE_PROJECT_ID||!env.RECOMMENDATION_BUDGET) return reply({reason:'setup'},503);
   const endpoint=new URL(request.url), photo=endpoint.pathname==='/recommendation-photo';
@@ -121,7 +121,7 @@ export async function handleRecommendations(request:Request,env:RecommendationEn
       // responses to the existing !ok check and never forwards our key to redirects.
       method:'POST',signal,redirect:'manual',headers:{'Content-Type':'application/json','X-Goog-Api-Key':key,
         'X-Goog-FieldMask':'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.photos'},
-      body:JSON.stringify({includedTypes:[query!.kind==='tourism'?'tourist_attraction':query!.kind],maxResultCount:6,rankPreference:'POPULARITY',languageCode:'ko',locationRestriction:{circle:{center:{latitude:query!.lat,longitude:query!.lng},radius:5000}}}),
+      body:JSON.stringify({includedTypes:[query!.kind==='tourism'?'tourist_attraction':query!.kind],maxResultCount:20,rankPreference:'POPULARITY',languageCode:'ko',locationRestriction:{circle:{center:{latitude:query!.lat,longitude:query!.lng},radius:5000}}}),
     });
     if(!response.ok) return reply(await googleFailure(response),response.status===429?429:502);
     return reply({places:parseGooglePlaces(await response.json(),query!.kind)});

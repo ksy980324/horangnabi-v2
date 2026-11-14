@@ -60,3 +60,6 @@ npm.cmd run test:rules
 실제 계정의 Google 로그인과 공개 Firebase에 규칙을 게시하는 작업은 로컬 에뮬레이터 테스트와 별개다. 새 규칙의 실제 게시 여부, 실제 두 휴대폰의 동기화와 초대 링크 열기는 배포 후 확인한다.
 
 참고: [사용자·그룹별 권한](https://firebase.google.com/docs/firestore/solutions/role-based-access) · [규칙 테스트](https://firebase.google.com/docs/firestore/security/test-rules-emulator) · [트랜잭션](https://firebase.google.com/docs/firestore/manage-data/transactions)
+
+## 로그인 유지와 새로고침
+Google 로그인 시 browserLocalPersistence를 명시하고, 초기 Firebase 로그인 복원과 서버의 프로필·여행 권한 확인 동안 별도 로딩 화면을 표시한다. 실제 미로그인으로 확인된 경우에만 Google 로그인 버튼을 표시한다. 같은 탭의 계정별 sessionStorage에 여행 ID·날짜·탭만 저장해 새로고침 후 다시 열며, 서버에서 확인한 여행 목록에 없는 ID는 무시한다. 새로고침으로 편집 중 입력 창은 복원하지 않는다. 로그아웃하면 해당 계정의 화면 위치를 지운다. 시크릿 모드·사이트 데이터 삭제·저장소 차단·다른 도메인/브라우저 사용은 로그인 유지 범위 밖이다.

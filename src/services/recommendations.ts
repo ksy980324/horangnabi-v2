@@ -10,6 +10,13 @@ export type Recommendation = {
 export function recommendationSearchDate(now=new Date()) {
   return [now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
 }
+export const RECOMMENDATION_PAGE_SIZE=6;
+export function recommendationPage(places:Recommendation[],requested:number) {
+  const count=Math.ceil(places.length/RECOMMENDATION_PAGE_SIZE);
+  const index=Math.max(0,Math.min(Number.isFinite(requested)?Math.floor(requested):0,Math.max(0,count-1)));
+  const start=index*RECOMMENDATION_PAGE_SIZE;
+  return {index,count,start,items:places.slice(start,start+RECOMMENDATION_PAGE_SIZE)};
+}
 export function recommendationAnchor(trip: Trip, date: string) {
   return trip.stops.filter(s => s.date === date && hasCoordinates(s)).at(-1)
     ?? (trip.destination && hasCoordinates(trip.destination) ? trip.destination : trip.stops.find(hasCoordinates));
