@@ -4,7 +4,7 @@ import type { Trip } from '../types';
 import { profileReference } from './firebaseProfile';
 import { parseUserProfile } from './userProfile';
 import { session } from './firebaseClient';
-import { nextSharedRevision, SharedTripConflict } from './sharedRevision';
+import { nextSharedRevision, retryPackingRevisionRace, SharedTripConflict } from './sharedRevision';
 import { packingMembers, savePackingItem, setPackingCheckedBy } from './packing';
 import { approveMember, initialTripAccess, parseTripAccess, removeMember, type JoinRequest, type TripAccess } from './tripMembers';
 import { recordTripActivity } from './activityLog';
@@ -91,7 +91,7 @@ export async function checkSharedPackingItem(userId: string, tripId: string, ite
   const { firestore } = session(userId);
   const ref = doc(sharedReferences(userId).trips, tripId);
   const stamp={id:uid(),actorId:userId,at:Date.now()};
-  await runTransaction(firestore, async transaction => {
+  await retryPackingRevisionRace(observe=>runTransaction(firestore, async transaction => {
     const current = await transaction.get(ref);
     if (!current.exists()) throw new SharedTripConflict();
     const { trip, revision } = current.data();
@@ -99,8 +99,12 @@ export async function checkSharedPackingItem(userId: string, tripId: string, ite
     const validated = parseDatabase({ version: 1, trips: [trip] }).trips[0];
     const item = validated.packingItems?.find(entry => entry.id === itemId);
     if (!item || !access.memberIds.includes(userId) || !Number.isSafeInteger(revision)) throw new SharedTripConflict();
+    observe(revision);
     const next=savePackingItem(validated, setPackingCheckedBy(item, access.memberIds, userId, checked));
     transaction.set(ref, tripPayload(recordTripActivity(validated,next,{...stamp,actorName:access.memberNames[userId]}), revision + 1, userId, access));
+  }),async()=>{
+    const latest=await getDoc(ref);
+    return latest.exists()&&parseTripAccess(latest.data()).memberIds.includes(userId)?latest.data().revision:undefined;
   });
 }
 

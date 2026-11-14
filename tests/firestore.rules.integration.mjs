@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
 import { collection, doc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, runTransaction } from 'firebase/firestore';
 import { recordTripActivity } from '../src/services/activityLog.ts';
+import { retryPackingRevisionRace } from '../src/services/sharedRevision.ts';
 
 let environment;
 before(async () => { environment = await initializeTestEnvironment({ projectId: 'demo-horangnabi', firestore: { rules: readFileSync('firestore.rules', 'utf8') } }); });
@@ -47,12 +48,16 @@ test('activity commits with the trip, retains concurrent packing actors and foll
   })).catch(error => { throw new Error('Initial activity transaction: ' + error.message, { cause: error }); });
   await Promise.all([['alice', alice], ['bob', bob]].map(async ([actor, db]) => {
     const stamp = { id: 'check-' + actor, actorId: actor, actorName: actor, at: Date.now() };
-    await assertSucceeds(runTransaction(db, async transaction => {
+    await assertSucceeds(retryPackingRevisionRace(observe=>runTransaction(db, async transaction => {
       const current = (await transaction.get(ref(db))).data();
+      observe(current.revision);
       const item = current.trip.packingItems[0];
       const completedBy = [...new Set([...item.completedBy, actor])];
       const next = { ...current.trip, packingItems: [{ ...item, completedBy, completed: current.memberIds.every(id => completedBy.includes(id)) }] };
       transaction.set(ref(db), update(current, actor, { trip: recordTripActivity(current.trip, next, stamp) }));
+    }),async()=>{
+      const latest=(await getDoc(ref(db))).data();
+      return latest.memberIds.includes(actor)?latest.revision:undefined;
     })).catch(error => { throw new Error('Concurrent activity transaction for ' + actor + ': ' + error.message, { cause: error }); });
   }));
   const latest = (await assertSucceeds(getDoc(ref(bob)))).data();
