@@ -2,7 +2,8 @@ import { before, beforeEach, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { collection, doc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where, setDoc, updateDoc, deleteDoc, writeBatch, serverTimestamp, Timestamp, runTransaction } from 'firebase/firestore';
+import { recordTripActivity } from '../src/services/activityLog.ts';
 
 let environment;
 before(async () => { environment = await initializeTestEnvironment({ projectId: 'demo-horangnabi', firestore: { rules: readFileSync('firestore.rules', 'utf8') } }); });
@@ -33,6 +34,38 @@ const seed = async (id = 'trip-a', owner = 'alice', members = ['alice', 'bob'], 
   return value;
 };
 const token = 'a'.repeat(64);
+
+test('activity commits with the trip, retains concurrent packing actors and follows membership access', async () => {
+  await seed();
+  const alice = client('alice'), bob = client('bob');
+  const ref = db => doc(db, 'sharedTrips', 'trip-a');
+  const initialStamp = { id: 'add-items', actorId: 'alice', actorName: 'alice', at: Date.now() };
+  await assertSucceeds(runTransaction(alice, async transaction => {
+    const current = (await transaction.get(ref(alice))).data();
+    const next = { ...current.trip, packingItems: [{ id: 'passport', name: 'Passport', completed: false, completedBy: [] }] };
+    transaction.set(ref(alice), update(current, 'alice', { trip: recordTripActivity(current.trip, next, initialStamp) }));
+  }));
+  await Promise.all([['alice', alice], ['bob', bob]].map(async ([actor, db]) => {
+    const stamp = { id: 'check-' + actor, actorId: actor, actorName: actor, at: Date.now() };
+    await assertSucceeds(runTransaction(db, async transaction => {
+      const current = (await transaction.get(ref(db))).data();
+      const item = current.trip.packingItems[0];
+      const completedBy = [...new Set([...item.completedBy, actor])];
+      const next = { ...current.trip, packingItems: [{ ...item, completedBy, completed: current.memberIds.every(id => completedBy.includes(id)) }] };
+      transaction.set(ref(db), update(current, actor, { trip: recordTripActivity(current.trip, next, stamp) }));
+    }));
+  }));
+  const latest = (await assertSucceeds(getDoc(ref(bob)))).data();
+  assert.equal(latest.trip.activityLog.length, 3);
+  assert.deepEqual(new Set(latest.trip.activityLog.slice(0, 2).map(entry => entry.actorId)), new Set(['alice', 'bob']));
+  assert.ok(latest.trip.activityLog.slice(0, 2).every(entry => entry.changes[0].action === 'check'));
+  assert.deepEqual(new Set(latest.trip.packingItems[0].completedBy), new Set(['alice', 'bob']));
+  assert.equal(latest.trip.packingItems[0].completed, true);
+  await assertFails(getDoc(ref(client('charlie'))));
+  await assertSucceeds(setDoc(ref(alice), update(latest, 'alice', { memberIds: ['alice'], memberNames: { alice: 'alice' } })));
+  await assertFails(getDoc(ref(bob)));
+  assert.deepEqual((await getDoc(ref(alice))).data().trip.activityLog, latest.trip.activityLog);
+});
 const request = (uid = 'charlie', inviteToken = token) => ({ userId: uid, displayName: 'Friend', status: 'pending', inviteToken, createdAt: serverTimestamp() });
 
 test('signed-in people create their own trips; anonymous users and forged initial participants cannot', async () => {

@@ -7,11 +7,15 @@ export type SavedPlace = Place & { id: string; category: Category; memo: string 
 export type TripDestination = { countryCode: string; cityName: string; lat?: number; lng?: number };
 export type PackingItem = { id: string; name: string; completed: boolean; completedBy?: string[] };
 export type Expense = { id: string; name: string; date: string; currency: string; amount: number; paidBy: string; shared: boolean };
+export type ActivityArea = 'trip'|'stop'|'saved'|'reservation'|'packing'|'expense';
+export type ActivityAction = 'create'|'update'|'delete'|'reorder'|'check'|'uncheck'|'move';
+export type ActivityChange = {area:ActivityArea;action:ActivityAction;label:string;fields:string[];date?:string};
+export type TripActivity = {id:string;actorId:string;actorName:string;at:number;changes:ActivityChange[];more:number};
 type ReservationDetails = { id: string; name: string; reference?: string; url?: string };
 export type FlightDirection = 'outbound' | 'return';
 export type Reservation = ReservationDetails & (
   { kind: 'flight'; direction?: FlightDirection; departure?: string; arrival?: string; departureAirport?: string; arrivalAirport?: string } |
   { kind: 'stay'; checkIn?: string; checkOut?: string; address?: string; lat?: number; lng?: number; mapUrl?: string }
 );
-export type Trip = { id: string; name: string; region: string; destination?: TripDestination; start: string; end: string; stops: Stop[]; savedPlaces?: SavedPlace[]; packingItems?: PackingItem[]; reservations?: Reservation[]; expenses?: Expense[] };
+export type Trip = { id: string; name: string; region: string; destination?: TripDestination; start: string; end: string; stops: Stop[]; savedPlaces?: SavedPlace[]; packingItems?: PackingItem[]; reservations?: Reservation[]; expenses?: Expense[]; activityLog?:TripActivity[] };
 export type Database = { version: 1; trips: Trip[] };

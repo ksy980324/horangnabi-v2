@@ -7,6 +7,7 @@ import { session } from './firebaseClient';
 import { nextSharedRevision, SharedTripConflict } from './sharedRevision';
 import { packingMembers, savePackingItem, setPackingCheckedBy } from './packing';
 import { approveMember, initialTripAccess, parseTripAccess, removeMember, type JoinRequest, type TripAccess } from './tripMembers';
+import { recordTripActivity } from './activityLog';
 
 export function sharedReferences(userId: string) {
   const { firestore } = session(userId);
@@ -27,11 +28,12 @@ function tripPayload(trip: Trip, revision: number, userId: string, access: TripA
 export async function writeSharedTrip(userId: string, tripId: string, expected: number | undefined, trip?: Trip) {
   const { firestore } = session(userId);
   const ref = doc(sharedReferences(userId).trips, tripId);
+  const stamp={id:uid(),actorId:userId,at:Date.now()};
   await runTransaction(firestore, async transaction => {
     const current = await transaction.get(ref);
     const revision = nextSharedRevision(current.exists(), current.data()?.revision, expected);
     const access = current.exists() ? parseTripAccess(current.data()) : initialTripAccess(userId, parseUserProfile((await transaction.get(profileReference(userId))).data()).nickname);
-    if (trip) transaction.set(ref, tripPayload(trip, revision, userId, access));
+    if (trip) transaction.set(ref, tripPayload(recordTripActivity(current.data()?.trip,trip,{...stamp,actorName:access.memberNames[userId]}), revision, userId, access));
     else {
       if (access.ownerId !== userId) throw new Error('여행장만 여행을 삭제할 수 있어요.');
       if (access.inviteToken) transaction.delete(doc(firestore, 'tripInvites', access.inviteToken));
@@ -45,11 +47,12 @@ export async function importSharedTrips(userId: string, trips: Trip[]) {
   if (trips.length > 100) throw new Error('한 번에 여행을 100개까지 가져올 수 있어요.');
   const refs = sharedReferences(userId);
   const copies = trips.map(trip => ({ ...trip, id: uid() }));
+  const stamps=copies.map(()=>({id:uid(),actorId:userId,at:Date.now()}));
   await runTransaction(firestore, async transaction => {
     const nickname = parseUserProfile((await transaction.get(profileReference(userId))).data()).nickname;
     const documents = await Promise.all(copies.map(trip => transaction.get(doc(refs.trips, trip.id))));
     if (documents.some(snapshot => snapshot.exists())) throw new SharedTripConflict();
-    for (const trip of copies) transaction.set(doc(refs.trips, trip.id), tripPayload(trip, 1, userId, initialTripAccess(userId, nickname)));
+    for (const [index,trip] of copies.entries()) transaction.set(doc(refs.trips, trip.id), tripPayload(recordTripActivity(undefined,trip,{...stamps[index],actorName:nickname}), 1, userId, initialTripAccess(userId, nickname)));
   });
 }
 
@@ -87,6 +90,7 @@ export async function migrateLegacyTrips(userId: string) {
 export async function checkSharedPackingItem(userId: string, tripId: string, itemId: string, checked: boolean) {
   const { firestore } = session(userId);
   const ref = doc(sharedReferences(userId).trips, tripId);
+  const stamp={id:uid(),actorId:userId,at:Date.now()};
   await runTransaction(firestore, async transaction => {
     const current = await transaction.get(ref);
     if (!current.exists()) throw new SharedTripConflict();
@@ -95,7 +99,8 @@ export async function checkSharedPackingItem(userId: string, tripId: string, ite
     const validated = parseDatabase({ version: 1, trips: [trip] }).trips[0];
     const item = validated.packingItems?.find(entry => entry.id === itemId);
     if (!item || !access.memberIds.includes(userId) || !Number.isSafeInteger(revision)) throw new SharedTripConflict();
-    transaction.set(ref, tripPayload(savePackingItem(validated, setPackingCheckedBy(item, access.memberIds, userId, checked)), revision + 1, userId, access));
+    const next=savePackingItem(validated, setPackingCheckedBy(item, access.memberIds, userId, checked));
+    transaction.set(ref, tripPayload(recordTripActivity(validated,next,{...stamp,actorName:access.memberNames[userId]}), revision + 1, userId, access));
   });
 }
 
