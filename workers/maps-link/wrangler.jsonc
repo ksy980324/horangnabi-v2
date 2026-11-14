@@ -2,5 +2,8 @@
   "name": "horangnabi-maps-link",
   "main": "index.ts",
   "compatibility_date": "2026-11-06",
-  "workers_dev": true
+  "workers_dev": true,
+  "vars": { "FIREBASE_PROJECT_ID": "horangnami-2f9fd" },
+  "durable_objects": { "bindings": [{ "name": "RECOMMENDATION_BUDGET", "class_name": "RecommendationBudget" }] },
+  "migrations": [{ "tag": "recommendations-v1", "new_sqlite_classes": ["RecommendationBudget"] }]
 }

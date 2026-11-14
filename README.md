@@ -7,7 +7,7 @@
 ## Google Maps 연결
 집 밖에서도 접속할 GitHub Pages 배포는 [배포 안내](docs/GITHUB_PAGES_SETUP.md)를 참고하세요. 공개 저장소는 [ksy980324/horangnabi-v2](https://github.com/ksy980324/horangnabi-v2)이며 실제 배포 상태는 [진행 상황](docs/PROGRESS.md)에 기록합니다. 무료 Pages는 소스와 앱 화면이 공개되는 방식입니다.
 
-한국어 Google Maps와 번호 핀, 일정 연동을 구현했습니다. [Google Maps 설정 안내](docs/GOOGLE_MAPS_SETUP.md)를 따라 Google Cloud에서 Maps JavaScript API를 켜고, `.env.example`을 `.env.local`로 복사한 뒤 API 키를 입력하세요. 서버를 재시작하면 Google 지도로 전환됩니다. 배포 전에는 자체 JavaScript Map ID를 생성해 설정하세요. 장소 검색은 기존 Photon을 유지하므로 Google Places 설정은 필요하지 않습니다. API 키는 채팅에 보내지 않아도 됩니다.
+한국어 Google Maps와 번호 핀, 일정 연동을 구현했습니다. [Google Maps 설정 안내](docs/GOOGLE_MAPS_SETUP.md)를 따라 Google Cloud에서 Maps JavaScript API를 켜고, `.env.example`을 `.env.local`로 복사한 뒤 API 키를 입력하세요. 서버를 재시작하면 Google 지도로 전환됩니다. 배포 전에는 자체 JavaScript Map ID를 생성해 설정하세요. 일정 추가 검색은 Photon을 유지하며, 선택적인 Google 추천 기능만 별도 Places 설정이 필요합니다. API 키는 채팅에 보내지 않아도 됩니다.
 
 ## 친구와 여행 공유하기
 
@@ -121,4 +121,4 @@ PWA 설치 지원을 추가했습니다. 배포 후 오른쪽 상단 메뉴의 *
 장소 보관함·준비물·여행별 초대·승인·실시간 공동 편집과 PWA 설치를 구현했고 사용자가 휴대폰 설치 성공을 확인했습니다. 필수 업데이트 팝업의 실제 휴대폰 동작 확인이 다음 단계입니다. Codex 작업 시작 시 `AGENTS.md`와 `docs/PRODUCT_SPEC.md`를 반드시 읽으세요.
 
 ## 추천 장소
-여행 상세의 **추천 장소**에서 요나고·오사카의 준비된 목록을 관심 분류와 일정 위치 기준으로 정렬합니다. 날짜를 고르고 일정 또는 보관함에 추가할 수 있습니다. 추가 추천 API 비용은 없으며, 실제 리뷰 평점 순위나 전 세계 자동 추천은 아닙니다. 출처와 범위는 [추천 안내](docs/RECOMMENDATIONS.md)를 참고하세요.
+여행 상세의 **추천 장소**에서 전 세계 관광지·맛집·카페를 Google 인기도순으로 최대 6곳 조회하고 사진·평점·리뷰 수를 표시합니다. 보관함이나 선택 날짜에 추가할 수 있습니다. 실제 조회에는 **Places API (New) 활성화, Worker secret 등록과 별도 서버 배포**가 필요합니다. 검색·사진 각각 서버 전체 하루 25회·월 800회까지만 호출하며 설정 누락 시 호출하지 않습니다. 무제한 무료 API가 아니므로 [설정·비용 제한 안내](docs/RECOMMENDATIONS.md)를 먼저 확인하세요. 기존 일정 추가 검색은 Photon을 유지합니다.

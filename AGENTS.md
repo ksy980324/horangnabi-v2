@@ -18,7 +18,7 @@
 - 모바일 우선 반응형 UI. 흰색·연회색 배경, 네이비 텍스트, 청록 포인트를 유지한다.
 - 동작하지 않는 버튼, 광고, 상품 추천을 추가하지 않는다. 사용자가 승인한 Google Maps JavaScript API 외의 과금 API는 임의로 추가하지 않는다.
 - 기본 지도 목표는 한국어 설정의 Google Maps이다. `VITE_GOOGLE_MAPS_API_KEY`가 있을 때 Google Maps, 없을 때 MapLibre GL JS + OpenFreeMap으로 실행한다. 지도 제공자 로고와 출처 표시를 제거하지 않는다. Google 키의 허용 웹사이트 및 API 제한을 문서화한다.
-- Google Places/Routes/Street View는 현재 사용하지 않는다. 장소 검색은 Photon을 유지한다. Google Maps 스크립트 중복 로드와 날짜·선택 변경 시 불필요한 지도 인스턴스 생성을 피한다. 무료량과 결제 설정은 `docs/GOOGLE_MAPS_SETUP.md`를 참고한다.
+- 사용자가 승인한 추천 화면에서만 Google Places API (New)를 사용한다. 기존 일정 추가 검색은 Photon을 유지하며 Routes/Street View는 사용하지 않는다. 추천은 Worker의 서버 전용 키와 Firebase 토큰 검증, 단일 SQLite Durable Object의 일/월 원자적 제한을 경유한다. 키·인증·저장소가 없거나 실패하면 Google 호출을 막는다. 브라우저 카운터로 대체하거나 global-v1 ID/namespace를 바꿔 사용량을 초기화하지 않는다. 사진·평점·응답을 영구 캐시하지 않으며 필수 출처를 유지한다. 설정은 docs/RECOMMENDATIONS.md를 참고한다. Google Maps 스크립트 중복 로드와 지도 인스턴스 재생성을 피한다.
 - 검색은 명시적 제출만 허용한다. 입력 자동 요청 금지. 요청 제한, 캐시, 타임아웃, 오류 처리를 유지한다. 제공자 정책 변경을 확인한다.
 - 지도/검색 실패가 일정 편집을 막으면 안 된다. 좌표 없는 일정을 지원한다.
 - LAN HTTP에서 crypto.randomUUID가 없을 수 있으므로 ID는 data.ts의 uid를 사용한다. getRandomValues 대체 경로를 유지하고 HTTPS에서만 테스트하지 않는다.

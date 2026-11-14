@@ -2,6 +2,8 @@ import { isGoogleMapsLink, isShortGoogleMapsLink, parseGoogleMapsShare } from '.
 import { googleMapsFeature, parseGoogleMapsEmbed, parseGoogleMapsPage, readGoogleMapsPage } from './googleMapsPage.ts';
 import { flightDate, flightNumber } from '../../src/services/flightLookup.ts';
 import { IncheonLookupError, lookupIncheonDepartures } from './incheonFlights.ts';
+import { handleRecommendations, type RecommendationEnv } from './recommendations.ts';
+export { RecommendationBudget } from './recommendations.ts';
 
 const allowedOrigins = new Set(['https://ksy980324.github.io', 'http://localhost:5173', 'http://127.0.0.1:5173']);
 const mapsHeaders = { 'Accept-Language': 'ko,en;q=0.8', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' };
@@ -27,12 +29,17 @@ async function lookupEmbeddedPlace(feature: { id: string; cid: string }, signal:
 }
 
 export default {
-  async fetch(request: Request, env?: { INCHEON_FLIGHT_SERVICE_KEY?: string }): Promise<Response> {
+  async fetch(request: Request, env?: RecommendationEnv & { INCHEON_FLIGHT_SERVICE_KEY?: string }): Promise<Response> {
     const origin = request.headers.get('Origin');
     if (!origin || !allowedOrigins.has(origin)) return new Response(null, { status: 403 });
     const headers = { 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Cache-Control': 'no-store' };
     const reply = (body: object, status = 200) => Response.json(body, { status, headers });
     const endpoint = new URL(request.url);
+    if (endpoint.pathname === '/recommendations' || endpoint.pathname === '/recommendation-photo') {
+      if (request.method === 'OPTIONS') return new Response(null, {status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET, OPTIONS','Access-Control-Allow-Headers':'Authorization'}});
+      if (request.method !== 'GET') return reply({},405);
+      return handleRecommendations(request,env??{},headers);
+    }
     if (request.method !== 'GET') return reply({}, 404);
     if (endpoint.pathname === '/flight') {
       const number = flightNumber(endpoint.searchParams.get('number') ?? '');
