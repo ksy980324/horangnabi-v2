@@ -1,3 +1,4 @@
+import { saveStopReview } from '../src/services/stopReviews.ts';
 import { before, beforeEach, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -266,4 +267,42 @@ test('trip members create, purchase, edit and delete souvenirs without losing ex
   assert.deepEqual(deleted.trip.souvenirs,[]);
   assert.equal(deleted.trip.expenses[0].amount,12000);
   assert.equal(deleted.trip.activityLog[0].changes[0].action,'delete');
+});
+
+
+test('shared visit reviews retain photos and transport memos; stale, anonymous and removed members cannot overwrite them', async () => {
+  await seed();
+  const alice=client('alice'),bob=client('bob');
+  const ref=db=>doc(db,'sharedTrips','trip-a');
+  const initial=(await getDoc(ref(alice))).data();
+  const stop={id:'place',name:'Palace',address:'',date:initial.trip.start,time:'',category:'관광',memo:'Bus 12'};
+  await assertSucceeds(setDoc(ref(alice),update(initial,'alice',{trip:{...initial.trip,stops:[stop]}})));
+  const stale=(await getDoc(ref(bob))).data();
+  const photo='data:image/jpeg;base64,/9j/AAAA';
+  const review={text:'A good morning visit',photos:[photo]};
+  const stamp={id:'review-save',actorId:'alice',actorName:'alice',at:Date.now()};
+  await assertSucceeds(runTransaction(alice,async transaction=>{
+    const current=(await transaction.get(ref(alice))).data();
+    const trip=saveStopReview(current.trip,'place',review);
+    transaction.set(ref(alice),update(current,'alice',{trip:recordTripActivity(current.trip,trip,stamp)}));
+  }));
+  const saved=(await assertSucceeds(getDoc(ref(bob)))).data();
+  assert.deepEqual(saved.trip.stops[0].review,review);
+  assert.equal(saved.trip.stops[0].memo,'Bus 12');
+  assert.deepEqual(saved.trip.activityLog[0].changes[0].fields,['review']);
+  await assertFails(setDoc(ref(bob),update(stale,'bob',{trip:saveStopReview(stale.trip,'place',{text:'stale',photos:[]})})));
+  assert.deepEqual((await getDoc(ref(alice))).data().trip.stops[0].review,review);
+  await assertFails(getDoc(ref(client('charlie'))));
+  await assertFails(getDoc(ref(environment.unauthenticatedContext().firestore())));
+  const edited=saveStopReview(saved.trip,'place',{text:'Updated by a companion',photos:[photo]});
+  await assertSucceeds(setDoc(ref(bob),update(saved,'bob',{trip:edited})));
+  const current=(await getDoc(ref(alice))).data();
+  await assertSucceeds(setDoc(ref(alice),update(current,'alice',{memberIds:['alice'],memberNames:{alice:'alice'}})));
+  await assertFails(getDoc(ref(bob)));
+  const removed=(await getDoc(ref(alice))).data();
+  await assertFails(setDoc(ref(bob),update(removed,'bob',{trip:saveStopReview(removed.trip,'place',{text:'no access',photos:[]})})));
+  await assertSucceeds(setDoc(ref(alice),update(removed,'alice',{trip:saveStopReview(removed.trip,'place',{text:'',photos:[]})})));
+  const cleared=(await getDoc(ref(alice))).data();
+  assert.equal('review' in cleared.trip.stops[0],false);
+  assert.equal(cleared.trip.stops[0].memo,'Bus 12');
 });

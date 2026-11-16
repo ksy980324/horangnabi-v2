@@ -73,7 +73,7 @@ function syncFlightStop(trip: Trip, reservation: Reservation, previous?: Reserva
   const stop: Stop = {
     id, name: `${event.airport.slice(0, 147)} ${event.outbound ? '도착' : '출발'}`, address: sameAirport ? linked.address : '',
     mapUrl: sameAirport ? linked.mapUrl : undefined, photoUrl: sameAirport ? linked.photoUrl : undefined,
-    date: event.date, time: event.time, category: '이동', memo: linked?.memo ?? '', flightReservationId: reservation.id, ...position,
+    date: event.date, time: event.time, category: '이동', memo: linked?.memo ?? '', review: linked?.review, flightReservationId: reservation.id, ...position,
   };
   if (linked?.date === stop.date) return trip.stops.map(item => item.id === linked.id ? stop : item);
   const stops = linked ? trip.stops.filter(item => item.flightReservationId !== reservation.id) : [...trip.stops];
@@ -109,7 +109,7 @@ function syncStayStops(trip: Trip, reservation: StayReservation, previous?: Rese
     const stop: Stop = {
       id: old?.id ?? reservationStopId(trip, `stay:${reservation.id}:${event}${event === 'start' ? `:${date}` : ''}`),
       name: `${reservation.name.slice(0, 145)} ${label}`, address: reservation.address ?? (sameStay ? old?.address : undefined) ?? '',
-      date, time, category: '숙소', memo: old?.memo ?? '', stayReservation: { id: reservation.id, event },
+      date, time, category: '숙소', memo: old?.memo ?? '', review: old?.review, stayReservation: { id: reservation.id, event },
       lat: position?.lat, lng: position?.lng,
       mapUrl: reservation.mapUrl ?? (sameStay ? old?.mapUrl : undefined), photoUrl: sameStay ? old?.photoUrl : undefined,
     };

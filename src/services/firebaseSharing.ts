@@ -1,3 +1,4 @@
+import { ensureReviewCapacity } from './stopReviews';
 import { collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, Timestamp, where } from 'firebase/firestore';
 import { parseDatabase, uid } from '../data';
 import type { Trip } from '../types';
@@ -21,6 +22,7 @@ export function sharingReferences(userId: string, tripId: string) {
 }
 
 function tripPayload(trip: Trip, revision: number, userId: string, access: TripAccess) {
+  ensureReviewCapacity(trip);
   const clean = parseDatabase(JSON.parse(JSON.stringify({ version: 1, trips: [trip] })));
   return { trip: clean.trips[0], revision, updatedAt: serverTimestamp(), updatedBy: userId, ...access };
 }

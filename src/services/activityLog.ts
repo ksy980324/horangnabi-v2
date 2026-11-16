@@ -95,6 +95,6 @@ export function activityLabel(change:ActivityChange) {
   return area[change.area]+' '+(change.area==='souvenir'&&change.action==='check'?'구매 완료':change.area==='souvenir'&&change.action==='uncheck'?'구매 해제':action[change.action]);
 }
 export function activityFields(change:ActivityChange) {
-  const labels:Record<string,string>={recipient:'받을 사람',quantity:'수량',purchased:'구매 여부',name:'이름',region:'여행지',start:'시작일',end:'종료일',destination:'여행지',date:'날짜',time:'시간',category:'분류',memo:'메모',address:'주소',lat:'위치',lng:'위치',mapUrl:'지도 링크',photoUrl:'사진',departure:'출발',arrival:'도착',departureAirport:'출발 공항',arrivalAirport:'도착 공항',checkIn:'체크인',checkOut:'체크아웃',direction:'항공편 방향',kind:'예약 종류',currency:'통화',amount:'금액',paidBy:'결제자',recordOnly:'단순 기록 여부',shared:'공동 지출 여부',flightReservationId:'연결 예약',stayReservation:'연결 예약'};
+  const labels:Record<string,string>={review:'후기·사진',recipient:'받을 사람',quantity:'수량',purchased:'구매 여부',name:'이름',region:'여행지',start:'시작일',end:'종료일',destination:'여행지',date:'날짜',time:'시간',category:'분류',memo:'메모',address:'주소',lat:'위치',lng:'위치',mapUrl:'지도 링크',photoUrl:'사진',departure:'출발',arrival:'도착',departureAirport:'출발 공항',arrivalAirport:'도착 공항',checkIn:'체크인',checkOut:'체크아웃',direction:'항공편 방향',kind:'예약 종류',currency:'통화',amount:'금액',paidBy:'결제자',recordOnly:'단순 기록 여부',shared:'공동 지출 여부',flightReservationId:'연결 예약',stayReservation:'연결 예약'};
   return [...new Set(change.fields.map(field=>labels[field]).filter(Boolean))].join(' · ');
 }

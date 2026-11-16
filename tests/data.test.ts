@@ -9,7 +9,7 @@ test('copy creates independent stops, retains place details and detaches reserva
   const copied = copyStop(source);
   assert.notEqual(copied.id, source.id);
   assert.notEqual(copyStop(source).id, copied.id);
-  assert.deepEqual(copied, { ...source, id: copied.id, flightReservationId: undefined, stayReservation: undefined });
+  assert.deepEqual(copied, { ...source, id: copied.id, flightReservationId: undefined, stayReservation: undefined, review: undefined });
   copied.date = datesBetween(db.trips[0].start, db.trips[0].end)[1];
   copied.memo = 'Different memo';
   assert.deepEqual(source, original);

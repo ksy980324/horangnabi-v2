@@ -1,3 +1,4 @@
+import { isStopReview, tripReviewPhotoBytes, reviewLimits } from './services/stopReviews';
 import { isSouvenirItem, souvenirLimit } from './services/souvenirs';
 import { MAX_TRIP_MEMBERS } from './services/tripMembers.ts';
 import { categories, type Database, type Stop, type Trip } from './types.ts';
@@ -22,7 +23,7 @@ export function datesBetween(start: string, end: string): string[] {
   return Array.from({ length: Math.round((b - a) / 86400000) + 1 }, (_, i) => new Date(a + i * 86400000).toISOString().slice(0, 10));
 }
 export function copyStop(stop: Stop): Stop {
-  return { ...stop, id: uid(), flightReservationId: undefined, stayReservation: undefined };
+  return { ...stop, id: uid(), flightReservationId: undefined, stayReservation: undefined, review: undefined };
 }
 export function moveStop(trip: Trip, date: string, id: string, direction: number): Trip {
   const stops = [...trip.stops];
@@ -88,6 +89,7 @@ export function parseDatabase(value: unknown): Database {
     }
     for (const s of t.stops) {
       if (!s || typeof s.id !== 'string' || ids.has(s.id) || typeof s.name !== 'string' || !s.name.trim() || typeof s.address !== 'string' || !isDate(s.date) || s.date < t.start || s.date > t.end || typeof s.time !== 'string' || (s.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(s.time)) || !categories.includes(s.category) || typeof s.memo !== 'string') return fail();
+      if (s.review !== undefined && !isStopReview(s.review)) return fail();
       if (s.mapUrl !== undefined && !isGoogleMapsLink(s.mapUrl)) return fail();
       if (s.photoUrl !== undefined && !isPhotoUrl(s.photoUrl)) return fail();
       if (s.flightReservationId !== undefined && (typeof s.flightReservationId !== 'string' || !s.flightReservationId.trim())) return fail();
@@ -96,6 +98,7 @@ export function parseDatabase(value: unknown): Database {
       if (s.lat !== undefined && (!Number.isFinite(s.lat) || Math.abs(s.lat) > 90 || !Number.isFinite(s.lng) || Math.abs(s.lng!) > 180)) return fail();
       ids.add(s.id);
     }
+    if (tripReviewPhotoBytes(t) > reviewLimits.tripPhotoBytes) return fail();
   }
   return db;
 }

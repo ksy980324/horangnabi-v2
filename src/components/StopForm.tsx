@@ -26,7 +26,7 @@ export function StopForm(props: Props) {
     if (resolving || props.busy) return;
     const next = { name: place.name.trim(), address: place.address, lat: place.lat, lng: place.lng, mapUrl: place.mapUrl, photoUrl: place.photoUrl, id: stop?.id ?? uid(), category, memo };
     if (props.mode === 'saved') props.onSave(next);
-    else props.onSave({ ...next, date: day, time, flightReservationId: props.stop?.flightReservationId, stayReservation: props.stop?.stayReservation });
+    else props.onSave({ ...next, date: day, time, flightReservationId: props.stop?.flightReservationId, stayReservation: props.stop?.stayReservation, review: props.stop?.review });
   }
   return <Modal title={savedMode ? (stop ? '후보 장소 수정' : '후보 장소 추가') : copying ? '일정 복사' : (stop ? '일정 수정' : '새 일정 추가')} onClose={onClose} busy={props.busy} status={props.status}>
     <fieldset className="stop-editor editor-fields" disabled={props.busy}>

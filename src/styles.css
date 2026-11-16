@@ -152,6 +152,19 @@
 .stop-label > p { display: flex; align-items: center; gap: 4px; color: #718382; font-size: 10px; line-height: 1.7; overflow-wrap: anywhere; }
 .stop-label > p svg { flex-shrink: 0; }
 .stop-photo-anchor { position: absolute; top: 0; left: 0; width: 1px; height: 1px; }
+.stop-review-preview { margin: 16px 0; padding: 14px; border-radius: 10px; background: #fff; border: 1px solid var(--border, #dce7e5); }
+.stop-review-preview > strong { font-size: 13px; color: var(--teal, #168b83); }
+.stop-review-preview > p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; font-size: 14px; }
+.stop-review-form .editor-fields { display: grid; gap: 12px; min-width: 0; }
+.review-text-count { text-align: right; font-size: 12px; }
+.review-photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.review-photo { min-width: 0; margin: 0; }
+.review-photo-toggle { display: block; width: 100%; padding: 0; border: 0; background: transparent; }
+.review-photo img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; }
+.review-photo.expanded { grid-column: 1 / -1; }
+.review-photo.expanded img { aspect-ratio: auto; max-height: 65vh; object-fit: contain; background: #f1f5f4; }
+.review-photo > .text-button { margin-top: 4px; min-height: 40px; }
+.stop-actions { flex-wrap: wrap; }
 .stop-photo-frame { flex: 0 0 52px; width: 52px; margin: 0; }
 .stop-photo { display: block; width: 100%; height: 52px; object-fit: contain; border-radius: 8px; background: #eef5f0; }
 .stop-photo-frame summary { display: block; list-style: none; cursor: pointer; border-radius: 8px; }
