@@ -2,7 +2,7 @@ import type { ActivityArea, ActivityChange, Trip, TripActivity } from '../types'
 
 export const ACTIVITY_LIMIT=50;
 const CHANGE_LIMIT=5;
-const areas=['trip','stop','saved','reservation','packing','expense'];
+const areas=['trip','stop','saved','reservation','packing','expense','souvenir'];
 const actions=['create','update','delete','reorder','check','uncheck','move'];
 const text=(value:unknown,max:number):value is string=>typeof value==='string'&&!!value.trim()&&value.length<=max;
 export function validActivityLog(value:unknown):value is TripActivity[] {
@@ -73,6 +73,10 @@ export function tripChanges(before:Trip|undefined,after:Trip,actorId:string):Act
     }
     changes.push(change);
   }
+  for(const {id,change} of collectionChanges('souvenir',before.souvenirs??[],after.souvenirs??[])) {
+    if(change.action==='update'&&change.fields.length===1&&change.fields[0]==='purchased') {change.action=after.souvenirs!.find(item=>item.id===id)?.purchased?'check':'uncheck';change.fields=[];}
+    changes.push(change);
+  }
   changes.push(...collectionChanges('expense',before.expenses??[],after.expenses??[]).map(item=>item.change));
   return changes;
 }
@@ -86,11 +90,11 @@ export function recordTripActivity(before:Trip|undefined,after:Trip,stamp:Omit<T
 }
 
 export function activityLabel(change:ActivityChange) {
-  const area:Record<string,string>={trip:'여행',stop:'일정',saved:'보관함',reservation:'예약',packing:'준비물',expense:'지출'};
+  const area:Record<string,string>={trip:'여행',stop:'일정',saved:'보관함',reservation:'예약',packing:'준비물',expense:'지출',souvenir:'기념품'};
   const action:Record<string,string>={create:'추가',update:'수정',delete:'삭제',reorder:'순서 변경',check:'준비 완료',uncheck:'준비 해제',move:'일정으로 이동'};
-  return area[change.area]+' '+action[change.action];
+  return area[change.area]+' '+(change.area==='souvenir'&&change.action==='check'?'구매 완료':change.area==='souvenir'&&change.action==='uncheck'?'구매 해제':action[change.action]);
 }
 export function activityFields(change:ActivityChange) {
-  const labels:Record<string,string>={name:'이름',region:'여행지',start:'시작일',end:'종료일',destination:'여행지',date:'날짜',time:'시간',category:'분류',memo:'메모',address:'주소',lat:'위치',lng:'위치',mapUrl:'지도 링크',photoUrl:'사진',departure:'출발',arrival:'도착',departureAirport:'출발 공항',arrivalAirport:'도착 공항',checkIn:'체크인',checkOut:'체크아웃',direction:'항공편 방향',kind:'예약 종류',currency:'통화',amount:'금액',paidBy:'결제자',recordOnly:'단순 기록 여부',shared:'공동 지출 여부',flightReservationId:'연결 예약',stayReservation:'연결 예약'};
+  const labels:Record<string,string>={recipient:'받을 사람',quantity:'수량',purchased:'구매 여부',name:'이름',region:'여행지',start:'시작일',end:'종료일',destination:'여행지',date:'날짜',time:'시간',category:'분류',memo:'메모',address:'주소',lat:'위치',lng:'위치',mapUrl:'지도 링크',photoUrl:'사진',departure:'출발',arrival:'도착',departureAirport:'출발 공항',arrivalAirport:'도착 공항',checkIn:'체크인',checkOut:'체크아웃',direction:'항공편 방향',kind:'예약 종류',currency:'통화',amount:'금액',paidBy:'결제자',recordOnly:'단순 기록 여부',shared:'공동 지출 여부',flightReservationId:'연결 예약',stayReservation:'연결 예약'};
   return [...new Set(change.fields.map(field=>labels[field]).filter(Boolean))].join(' · ');
 }

@@ -43,7 +43,7 @@ test('activity commits with the trip, retains concurrent packing actors and foll
   const initialStamp = { id: 'add-items', actorId: 'alice', actorName: 'alice', at: Date.now() };
   await assertSucceeds(runTransaction(alice, async transaction => {
     const current = (await transaction.get(ref(alice))).data();
-    const next = { ...current.trip, packingItems: [{ id: 'passport', name: 'Passport', completed: false, completedBy: [] }], expenses: [{id:'record',name:'Travel cost',date:'2026-11-16',currency:'KRW',amount:12000,paidBy:'alice',shared:false,recordOnly:true}] };
+    const next = { ...current.trip, packingItems: [{ id: 'passport', name: 'Passport', completed: false, completedBy: [] }], souvenirs:[{id:'gift',name:'Cookies',recipient:'Family',quantity:2,memo:'Airport',purchased:false}], expenses: [{id:'record',name:'Travel cost',date:'2026-11-16',currency:'KRW',amount:12000,paidBy:'alice',shared:false,recordOnly:true}] };
     transaction.set(ref(alice), update(current, 'alice', { trip: recordTripActivity(current.trip, next, initialStamp) }));
   })).catch(error => { throw new Error('Initial activity transaction: ' + error.message, { cause: error }); });
   await Promise.all([['alice', alice], ['bob', bob]].map(async ([actor, db]) => {
@@ -62,6 +62,8 @@ test('activity commits with the trip, retains concurrent packing actors and foll
   }));
   const latest = (await assertSucceeds(getDoc(ref(bob)))).data();
   assert.equal(latest.trip.activityLog.length, 3);
+  assert.equal(latest.trip.souvenirs[0].name, 'Cookies');
+  assert.equal(latest.trip.souvenirs[0].quantity, 2);
   assert.equal(latest.trip.expenses[0].recordOnly, true);
   assert.equal(latest.trip.expenses[0].currency, 'KRW');
   assert.equal(latest.trip.expenses[0].amount, 12000);
@@ -237,4 +239,31 @@ test('a trip creator and join applicant must use their saved nickname', async ()
   await seed('trip-a', 'alice', ['alice'], token);
   await assertFails(setDoc(doc(client('charlie'), 'sharedTrips', 'trip-a', 'requests', 'charlie'), { ...request(), displayName: 'Other identity' }));
   await assertSucceeds(setDoc(doc(client('charlie'), 'sharedTrips', 'trip-a', 'requests', 'charlie'), request()));
+});
+
+test('trip members create, purchase, edit and delete souvenirs without losing expenses; outsiders cannot read them', async () => {
+  await seed();
+  let sequence=0;
+  const write=async(actor,change)=>{
+    const db=client(actor),ref=doc(db,'sharedTrips','trip-a');
+    const stamp={id:'souvenir-'+(++sequence),actorId:actor,actorName:actor,at:Date.now()};
+    await assertSucceeds(runTransaction(db,async transaction=>{
+      const current=(await transaction.get(ref)).data();
+      transaction.set(ref,update(current,actor,{trip:recordTripActivity(current.trip,change(current.trip),stamp)}));
+    }));
+  };
+  const item={id:'gift',name:'Cookies',recipient:'Family',quantity:2,memo:'Airport',purchased:false};
+  await write('alice',trip=>({...trip,souvenirs:[item],expenses:[{id:'meal',name:'Lunch',date:trip.start,currency:'KRW',amount:12000,paidBy:'alice',shared:true}]}));
+  await write('bob',trip=>({...trip,souvenirs:trip.souvenirs.map(item=>({...item,purchased:true}))}));
+  const bought=(await getDoc(doc(client('alice'),'sharedTrips','trip-a'))).data();
+  assert.equal(bought.trip.souvenirs[0].purchased,true);
+  assert.equal(bought.trip.activityLog[0].changes[0].action,'check');
+  await write('alice',trip=>({...trip,souvenirs:trip.souvenirs.map(item=>({...item,quantity:3,recipient:'Friend'}))}));
+  assert.equal((await getDoc(doc(client('bob'),'sharedTrips','trip-a'))).data().trip.souvenirs[0].quantity,3);
+  await assertFails(getDoc(doc(client('charlie'),'sharedTrips','trip-a')));
+  await write('bob',trip=>({...trip,souvenirs:[]}));
+  const deleted=(await getDoc(doc(client('alice'),'sharedTrips','trip-a'))).data();
+  assert.deepEqual(deleted.trip.souvenirs,[]);
+  assert.equal(deleted.trip.expenses[0].amount,12000);
+  assert.equal(deleted.trip.activityLog[0].changes[0].action,'delete');
 });

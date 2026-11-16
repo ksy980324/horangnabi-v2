@@ -6,8 +6,9 @@ export type Stop = Place & { id: string; date: string; time: string; category: C
 export type SavedPlace = Place & { id: string; category: Category; memo: string };
 export type TripDestination = { countryCode: string; cityName: string; lat?: number; lng?: number };
 export type PackingItem = { id: string; name: string; completed: boolean; completedBy?: string[] };
+export type SouvenirItem = {id:string;name:string;recipient:string;quantity:number;memo:string;purchased:boolean};
 export type Expense = { id: string; name: string; date: string; currency: string; amount: number; paidBy: string; shared: boolean; recordOnly?: boolean };
-export type ActivityArea = 'trip'|'stop'|'saved'|'reservation'|'packing'|'expense';
+export type ActivityArea = 'trip'|'stop'|'saved'|'reservation'|'packing'|'expense'|'souvenir';
 export type ActivityAction = 'create'|'update'|'delete'|'reorder'|'check'|'uncheck'|'move';
 export type ActivityChange = {area:ActivityArea;action:ActivityAction;label:string;fields:string[];date?:string};
 export type TripActivity = {id:string;actorId:string;actorName:string;at:number;changes:ActivityChange[];more:number};
@@ -17,5 +18,5 @@ export type Reservation = ReservationDetails & (
   { kind: 'flight'; direction?: FlightDirection; departure?: string; arrival?: string; departureAirport?: string; arrivalAirport?: string } |
   { kind: 'stay'; checkIn?: string; checkOut?: string; address?: string; lat?: number; lng?: number; mapUrl?: string }
 );
-export type Trip = { id: string; name: string; region: string; destination?: TripDestination; start: string; end: string; stops: Stop[]; savedPlaces?: SavedPlace[]; packingItems?: PackingItem[]; reservations?: Reservation[]; expenses?: Expense[]; activityLog?:TripActivity[] };
+export type Trip = { id: string; name: string; region: string; destination?: TripDestination; start: string; end: string; stops: Stop[]; savedPlaces?: SavedPlace[]; packingItems?: PackingItem[]; reservations?: Reservation[]; expenses?: Expense[]; souvenirs?: SouvenirItem[]; activityLog?:TripActivity[] };
 export type Database = { version: 1; trips: Trip[] };

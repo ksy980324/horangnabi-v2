@@ -1,3 +1,4 @@
+import { isSouvenirItem, souvenirLimit } from './services/souvenirs';
 import { MAX_TRIP_MEMBERS } from './services/tripMembers.ts';
 import { categories, type Database, type Stop, type Trip } from './types.ts';
 import { isGoogleMapsLink } from './services/googleMapsLink.ts';
@@ -50,6 +51,7 @@ export function parseDatabase(value: unknown): Database {
   for (const t of db.trips) {
     if (!t || typeof t.id !== 'string' || tripIds.has(t.id) || typeof t.name !== 'string' || !t.name.trim() || typeof t.region !== 'string' || !isDate(t.start) || !isDate(t.end) || !datesBetween(t.start, t.end).length || !Array.isArray(t.stops)) return fail();
     tripIds.add(t.id);
+    if(t.souvenirs!==undefined&&(!Array.isArray(t.souvenirs)||t.souvenirs.length>souvenirLimit||!t.souvenirs.every(isSouvenirItem)||new Set(t.souvenirs.map(item=>item.id)).size!==t.souvenirs.length))return fail();
     if(t.activityLog!==undefined&&!validActivityLog(t.activityLog)) return fail();
     if (t.expenses !== undefined && (!Array.isArray(t.expenses) || t.expenses.length > expenseLimit
       || !t.expenses.every(isExpense) || new Set(t.expenses.map(item => item.id)).size !== t.expenses.length)) return fail();

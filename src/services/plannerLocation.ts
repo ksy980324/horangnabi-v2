@@ -1,6 +1,6 @@
 import type { Database } from '../types';
 import { datesBetween } from '../data';
-type PlannerView='schedule'|'saved'|'reservations'|'expenses';
+type PlannerView='schedule'|'saved'|'reservations'|'expenses'|'souvenirs';
 export type PlannerLocation={tripId?:string;day?:string;view?:PlannerView;packingOpen?:boolean};
 const key=(userId?:string)=>'horangnabi-v2:planner-location:'+(userId??'device');
 export function readPlannerLocation(db:Database,userId?:string):PlannerLocation {
@@ -9,7 +9,7 @@ export function readPlannerLocation(db:Database,userId?:string):PlannerLocation 
     const trip=db.trips.find(trip=>trip.id===raw?.tripId);
     if(!trip) return {};
     return {tripId:trip.id,day:typeof raw?.day==='string'&&datesBetween(trip.start,trip.end).includes(raw.day)?raw.day:trip.start,
-      view:raw?.view&&['schedule','saved','reservations',...(userId?['expenses']:[])].includes(raw.view)?raw.view:'schedule',packingOpen:raw?.packingOpen===true};
+      view:raw?.view&&['schedule','saved','reservations','souvenirs',...(userId?['expenses']:[])].includes(raw.view)?raw.view:'schedule',packingOpen:raw?.packingOpen===true};
   } catch {return {};}
 }
 export function savePlannerLocation(location:PlannerLocation,userId?:string) {

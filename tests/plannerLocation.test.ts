@@ -29,3 +29,11 @@ test('invalid screen state and unavailable storage do not block opening the plan
   context.mock.method(storage,'setItem',()=>{throw new Error('storage disabled');});
   assert.deepEqual(readPlannerLocation(db),{});assert.doesNotThrow(()=>savePlannerLocation({tripId:'trip'}));
 });
+
+test('souvenir view restores for a visible shared or device trip',context=>{
+  useStorage(context);
+  for(const user of ['user-a',undefined]) {
+    savePlannerLocation({tripId:'trip',view:'souvenirs'},user);
+    assert.equal(readPlannerLocation(db,user).view,'souvenirs');
+  }
+});
