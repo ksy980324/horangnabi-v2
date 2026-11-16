@@ -25,13 +25,13 @@ export function Expenses({ items, members, busy, onAdd, onEdit, onDelete }: {
     </ul>}
     {items.length ? <ul className="expense-list">{[...items].reverse().sort((a, b) => b.date.localeCompare(a.date)).map(item =>
       <li key={item.id}><div className="expense-entry"><div><strong>{item.name}</strong>
-        <p>{item.date.replaceAll('-', '.')} · {memberLabel(item.paidBy, members)} 결제 · {item.shared ? '공동' : '개인'}</p></div>
+        <p>{item.date.replaceAll('-', '.')} · {item.recordOnly ? '단순 기록용 · 정산 제외' : `${memberLabel(item.paidBy, members)} 결제 · ${item.shared ? '공동' : '개인'}`}</p></div>
         <strong>{formatAmount(item.amount, item.currency)}</strong></div>
         <div className="expense-actions">
           <button className="text-button" disabled={busy} onClick={() => onEdit(item.id)} aria-label={`${item.name} 수정`}><Pencil size={14}/>수정</button>
           <button className="text-button danger" disabled={busy} onClick={() => { if (confirm(`‘${item.name}’ 지출을 삭제할까요?`)) onDelete(item.id); }} aria-label={`${item.name} 삭제`}><Trash2 size={14}/>삭제</button>
         </div>
-      </li>)}</ul> : <div className="empty"><Wallet size={30} aria-hidden="true"/><h3>아직 지출이 없어요</h3><p>공동 지출은 참여자끼리 균등하게 나누고, 개인 지출은 따로 기록해요.</p></div>}
+      </li>)}</ul> : <div className="empty"><Wallet size={30} aria-hidden="true"/><h3>아직 지출이 없어요</h3><p>공동 지출은 균등 정산하고, 개인 지출과 단순 기록용은 정산에서 제외해요.</p></div>}
   </section>;
 }
 
@@ -43,33 +43,33 @@ export function ExpenseForm({ item, members, defaultCurrency, onClose, onSave, b
   const [currency, setCurrency] = useState(item?.currency ?? defaultCurrency);
   const [amount, setAmount] = useState(item ? amountInput(item.amount, item.currency) : '');
   const [paidBy, setPaidBy] = useState(item?.paidBy ?? members.userId);
-  const [shared, setShared] = useState(item?.shared ?? true);
+  const [kind, setKind] = useState(item?.recordOnly ? 'record' : item?.shared === false ? 'personal' : 'shared');
   const [error, setError] = useState('');
   function save(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
-    const value = { id: item?.id ?? uid(), name: name.trim(), date, currency, amount: parseAmount(amount, currency), paidBy, shared };
+    const value = { id: item?.id ?? uid(), name: name.trim(), date, currency, amount: parseAmount(amount, currency), paidBy, shared: kind === 'shared', ...(kind === 'record' ? {recordOnly: true} : {}) };
     if (!isExpense(value)) return setError('이름과 날짜, 통화에 맞는 0보다 큰 금액을 확인해 주세요.');
     onSave(value);
   }
   return <Modal title={item ? '지출 수정' : '지출 추가'} onClose={onClose} busy={busy} status={status}>
     <form className="form" onSubmit={save} onChange={() => setError('')}>
       <label>지출 이름<input autoFocus required maxLength={100} value={name} onChange={event => setName(event.target.value)} placeholder="예: 저녁 식사"/></label>
-      <label>결제 날짜<input type="date" required value={date} onChange={event => setDate(event.target.value)}/></label>
+      <label>{kind === 'record' ? '기록 날짜' : '결제 날짜'}<input type="date" required value={date} onChange={event => setDate(event.target.value)}/></label>
       <div className="form-row">
         <label>금액<input required inputMode="decimal" maxLength={18} value={amount} onChange={event => setAmount(event.target.value)} placeholder="예: 4500"/></label>
         <label>통화<select value={currency} onChange={event => setCurrency(event.target.value)}>
           {currencies.map(code => <option value={code} key={code}>{code} · {currencyName(code)}</option>)}
         </select></label>
       </div>
-      <label>결제한 사람<select value={paidBy} onChange={event => setPaidBy(event.target.value)}>
+      <label>지출 구분<select value={kind} onChange={event => setKind(event.target.value)}>
+        <option value="shared">공동 지출 · 현재 참여자 균등 정산</option><option value="personal">개인 지출 · 정산 제외</option><option value="record">단순 기록용 · 정산 제외</option>
+      </select></label>
+      {kind !== 'record' && <label>결제한 사람<select value={paidBy} onChange={event => setPaidBy(event.target.value)}>
         {members.memberIds.map(id => <option value={id} key={id}>{memberLabel(id, members)}</option>)}
         {item && !members.memberIds.includes(item.paidBy) && <option value={item.paidBy}>이전 참여자</option>}
-      </select></label>
-      <label>지출 구분<select value={shared ? 'shared' : 'personal'} onChange={event => setShared(event.target.value === 'shared')}>
-        <option value="shared">공동 지출 · 현재 참여자 균등 정산</option><option value="personal">개인 지출 · 정산 제외</option>
-      </select></label>
-      <p className="muted">개인 지출도 참여자 모두에게 보여요. 공동 지출은 현재 참여자 기준으로 균등 정산하며, 참여자가 바뀌면 과거 지출의 정산도 다시 계산돼요.</p>
+      </select></label>}
+      <p className="muted">단순 기록용은 결제자 선택 없이 총지출에만 포함하고 정산에서 제외해요. 모든 지출 기록은 참여자 모두에게 보여요. 공동 지출은 현재 참여자 기준으로 균등 정산하며, 참여자가 바뀌면 과거 지출의 정산도 다시 계산돼요.</p>
       {error && <p className="error" role="alert">{error}</p>}
       <button className="primary" disabled={busy}>저장</button>
     </form>

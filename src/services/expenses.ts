@@ -4,12 +4,14 @@ export const currencies = ['KRW', 'JPY', 'USD', 'EUR', 'TWD', 'THB', 'VND', 'CNY
 export const expenseLimit = 500;
 const maxAmount = 999_999_999_999;
 const currencyNames = new Intl.DisplayNames('ko', { type: 'currency' });
-export const currencyName = (currency: string) => currencyNames.of(currency);
+export const currencyName = (currency: string) => currency === 'KRW' ? '원화' : currencyNames.of(currency);
 const formatters = new Map(currencies.map(currency => [currency, new Intl.NumberFormat('ko-KR', { style: 'currency', currency, currencyDisplay: 'code' })]));
+const wonFormatter = new Intl.NumberFormat('ko-KR');
 const formatter = (currency: string) => formatters.get(currency as typeof currencies[number]);
 
 export function formatAmount(amount: number, currency: string) {
   const format = formatter(currency)!;
+  if (currency === 'KRW') return wonFormatter.format(amount) + '원';
   return format.format(amount / 10 ** format.resolvedOptions().maximumFractionDigits!);
 }
 
@@ -33,7 +35,8 @@ export function isExpense(value: unknown): value is Expense {
     && typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date)
     && Number.isFinite(Date.parse(item.date)) && new Date(item.date).toISOString().slice(0, 10) === item.date
     && !!formatter(item.currency) && Number.isSafeInteger(item.amount) && item.amount > 0 && item.amount <= maxAmount
-    && typeof item.shared === 'boolean';
+    && typeof item.shared === 'boolean' && (item.recordOnly === undefined || typeof item.recordOnly === 'boolean')
+    && !(item.recordOnly && item.shared);
 }
 
 export function summarizeExpenses(items: Expense[], members: readonly string[]) {
@@ -41,7 +44,7 @@ export function summarizeExpenses(items: Expense[], members: readonly string[]) 
   for (const item of items) {
     const entry = totals.get(item.currency) ?? { total: 0, shared: 0, paid: new Map(members.map(id => [id, 0])), formerMember: false };
     entry.total += item.amount;
-    if (item.shared) {
+    if (item.shared && !item.recordOnly) {
       entry.shared += item.amount;
       if (entry.paid.has(item.paidBy)) entry.paid.set(item.paidBy, entry.paid.get(item.paidBy)! + item.amount);
       else entry.formerMember = true;
