@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    # 23:00 UTC = 08:00 Asia/Seoul on the following day.
+    - cron: '0 23 * * *'
 
 permissions:
   contents: read
@@ -48,6 +51,8 @@ jobs:
         env:
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           VITE_GOOGLE_MAP_ID: ${{ vars.GOOGLE_MAP_ID }}
+      - name: Prepare shared daily exchange rates
+        run: node scripts/update-exchange-rates.ts
       - name: Build site
         run: npm run build
         env:

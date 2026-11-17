@@ -1,40 +1,38 @@
 import type { Expense } from '../types';
-import { amountInput, currencies } from './expenses';
+import { amountInput } from './expenses';
+import { dailyRateFile, isCurrentRateWindow, parseDailyWonRates, rateWindowStart, type DailyWonRates, type WonRates } from './dailyExchangeRates';
 
-export type WonRates = { fetchedAt: number; wonPerUnit: Partial<Record<string, number>> };
-export const RATE_REFRESH_MS = 60_000;
-export const RATE_STALE_MS = 5 * 60_000;
-export const RATE_ENDPOINT = 'https://api.coinbase.com/v2/exchange-rates';
-const numberRate = (value: unknown): number | undefined => {
-  if (typeof value !== 'string' || !/^\d+(?:\.\d+)?$/.test(value) || value.length > 80) return;
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 && number <= 1e12 ? number : undefined;
+export { parseWonRates, rateWindowStart, nextRateUpdateAt, isCurrentRateWindow } from './dailyExchangeRates';
+export type { WonRates } from './dailyExchangeRates';
+export const RATE_RETRY_MS = 5 * 60_000;
+export const RATE_ENDPOINT = (import.meta.env?.BASE_URL ?? './') + 'exchange-rates.json';
+export const RATE_CACHE_KEY = 'horangnabi-v2:daily-exchange-rates:v1';
+type RateStorage = Pick<Storage, 'getItem' | 'setItem'>;
+const browserStorage: RateStorage = {
+  getItem(key) { try { return globalThis.localStorage?.getItem(key) ?? null; } catch { return null; } },
+  setItem(key, value) { try { globalThis.localStorage?.setItem(key, value); } catch { /* Public-rate cache is optional. */ } },
 };
 
-export function parseWonRates(value: unknown, fetchedAt: number): WonRates {
-  const data = (value as { data?: { currency?: unknown; rates?: Record<string, unknown> } } | null)?.data;
-  if (!data || data.currency !== 'USD' || !data.rates || typeof data.rates !== 'object' || Array.isArray(data.rates)
-    || !Number.isSafeInteger(fetchedAt) || fetchedAt < 0 || fetchedAt > 8640000000000000) throw new Error('환율 응답을 확인하지 못했어요.');
-  const krw = numberRate(data.rates.KRW);
-  if (!krw || numberRate(data.rates.USD) !== 1) throw new Error('원화 환율을 확인하지 못했어요.');
-  const wonPerUnit: WonRates['wonPerUnit'] = { KRW: 1 };
-  for (const currency of currencies) {
-    if (currency === 'KRW') continue;
-    const rate = numberRate(data.rates[currency]);
-    if (rate && Number.isFinite(krw / rate) && krw / rate > 0) wonPerUnit[currency] = krw / rate;
-  }
-  return { fetchedAt, wonPerUnit };
-}
-
-/** Public rates only. Never send an amount, trip ID, Firebase token or account data. */
-export function createExchangeRateClient(fetcher: typeof fetch = fetch, clock: () => number = Date.now, timeoutMs = 8000) {
-  let cached: WonRates | undefined, pending: Promise<WonRates> | undefined;
+/** The app reads the common daily file, never the external provider or private trip data. */
+export function createExchangeRateClient(fetcher: typeof fetch = fetch, clock: () => number = Date.now, timeoutMs = 8000, storage: RateStorage = browserStorage) {
+  let cached: DailyWonRates | undefined, pending: Promise<DailyWonRates> | undefined;
   let lastAttempt = -Infinity, lastFailure = '';
+  function peek() {
+    if (cached && cached.periodStart > rateWindowStart(clock())) cached = undefined;
+    try {
+      const raw = storage.getItem(RATE_CACHE_KEY);
+      const restored = raw ? parseDailyWonRates(JSON.parse(raw), clock()) : undefined;
+      if (restored && (!cached || restored.fetchedAt > cached.fetchedAt)) cached = restored;
+    } catch { /* Malformed/disabled storage must not block the ledger. */ }
+    return cached;
+  }
   return {
-    peek: () => cached,
-    load(): Promise<WonRates> {
+    peek,
+    load(): Promise<DailyWonRates> {
+      peek();
+      if (cached && isCurrentRateWindow(cached, clock())) return Promise.resolve(cached);
       if (pending) return pending;
-      if (clock() - lastAttempt < RATE_REFRESH_MS) {
+      if (rateWindowStart(lastAttempt) === rateWindowStart(clock()) && clock() - lastAttempt < RATE_RETRY_MS) {
         if (lastFailure) return Promise.reject(new Error(lastFailure));
         if (cached) return Promise.resolve(cached);
       }
@@ -43,16 +41,20 @@ export function createExchangeRateClient(fetcher: typeof fetch = fetch, clock: (
       const timer = setTimeout(() => controller.abort(), timeoutMs);
       pending = Promise.resolve().then(async () => {
         try {
-          const response = await fetcher(RATE_ENDPOINT, {
-            signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store', mode: 'cors',
+          const url = RATE_ENDPOINT + '?day=' + rateWindowStart(clock());
+          const response = await fetcher(url, {
+            signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-store',
           });
-          if (!response.ok) throw new Error(response.status === 429 ? '환율 요청이 잠시 제한됐어요. 1분 뒤 다시 시도해 주세요.' : '최신 환율을 불러오지 못했어요.');
-          const snapshot = parseWonRates(await response.json(), clock());
-          cached = snapshot; lastFailure = '';
-          return snapshot;
+          if (!response.ok) throw new Error('오늘의 환율 파일을 불러오지 못했어요. 잠시 후 다시 확인해 주세요.');
+          const snapshot = parseDailyWonRates(await response.json(), clock());
+          peek();
+          const latest = cached && cached.fetchedAt > snapshot.fetchedAt ? cached : snapshot;
+          cached = latest; lastFailure = '';
+          try { storage.setItem(RATE_CACHE_KEY, JSON.stringify(dailyRateFile(latest))); } catch { /* Keep working in memory. */ }
+          return latest;
         } catch (cause) {
           lastFailure = controller.signal.aborted ? '환율 조회 시간이 초과됐어요. 다시 시도해 주세요.'
-            : cause instanceof Error && cause.message.includes('환율') ? cause.message : '최신 환율을 불러오지 못했어요. 연결을 확인해 주세요.';
+            : cause instanceof Error && cause.message.includes('환율') ? cause.message : '오늘의 환율을 불러오지 못했어요. 연결을 확인해 주세요.';
           throw new Error(lastFailure);
         } finally { clearTimeout(timer); pending = undefined; }
       });
