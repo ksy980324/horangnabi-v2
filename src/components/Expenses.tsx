@@ -1,3 +1,4 @@
+import { ExpenseWonTotal } from './ExpenseWonTotal';
 import { useState, type FormEvent } from 'react';
 import { Pencil, Plus, Trash2, Wallet } from 'lucide-react';
 import { uid } from '../data';
@@ -15,6 +16,7 @@ export function Expenses({ items, members, busy, onAdd, onEdit, onDelete }: {
   const summaries = summarizeExpenses(items, members.memberIds);
   return <section className="expenses" aria-label="공동 가계부">
     <div className="reservations-heading"><h2>공동 가계부</h2><button className="primary" disabled={busy || items.length >= expenseLimit} onClick={onAdd}><Plus size={17}/>지출 추가</button></div>
+    {items.length > 0 && <ExpenseWonTotal items={items}/>}
     {items.length >= expenseLimit && <p className="muted">여행당 지출을 {expenseLimit}개까지 기록할 수 있어요.</p>}
     {summaries.length > 0 && <ul className="expense-totals" aria-label="통화별 정산">
       {summaries.map(summary => <li key={summary.currency}>
