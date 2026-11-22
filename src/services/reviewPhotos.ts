@@ -27,28 +27,37 @@ function readDataUrl(file: File): Promise<string> {
 export async function compressReviewPhoto(file: File): Promise<string> {
   const extension = file.name?.split('.').pop()?.toLowerCase();
   const extensions: Record<string,string> = {jpg:'jpeg',jpeg:'jpeg',png:'png',webp:'webp',avif:'avif',heic:'heic',heif:'heif'};
-  const mime = file.type || (extension && extensions[extension] ? 'image/' + extensions[extension] : '');
-  if (!/^image\/(jpeg|jpg|png|webp|avif|heic|heif|heic-sequence|heif-sequence)$/i.test(mime)) throw new Error('사진 파일을 선택해 주세요. JPG·PNG·WebP 형식을 권장해요.');
+  const mime = (!file.type || file.type === 'application/octet-stream') && extension && extensions[extension] ? 'image/' + extensions[extension] : file.type;
+  if (!/^image\/(jpeg|jpg|png|webp|avif|heic|heif|heic-sequence|heif-sequence)$/i.test(mime)) throw new Error('JPG·PNG·WebP·AVIF·HEIC·HEIF 사진 파일을 선택해 주세요.');
   if (!file.size || file.size > 25 * 1024 * 1024) throw new Error('원본 사진은 한 장당 25MB 이하로 선택해 주세요.');
+  const isHeic = /hei[cf]/i.test(mime) || extension === 'heic' || extension === 'heif';
   let url: string | undefined;
-  let image: HTMLImageElement;
+  let image: HTMLImageElement | HTMLCanvasElement;
+  let converted: HTMLCanvasElement | undefined;
+  let canvas: HTMLCanvasElement | undefined;
   try {
     try { url = URL.createObjectURL(file); image = await loadImage(url); }
     catch {
-      if (typeof FileReader === 'undefined') throw new Error('사진을 읽지 못했어요. JPG 또는 PNG 사진으로 다시 선택해 주세요.');
-      const data = await readDataUrl(file);
-      try { image = await loadImage(data); }
-      catch {
-        if (/hei[cf]/i.test(mime) || extension === 'heic' || extension === 'heif') throw new Error('이 브라우저에서 HEIC/HEIF 사진을 읽지 못했어요. 갤러리에서 JPG로 변환하거나 화면을 캡처한 PNG/JPG 사진을 선택해 주세요.');
-        throw new Error('사진 내용을 해석하지 못했어요. 갤러리에서 편집 후 새 파일로 저장하거나 화면을 캡처한 사진을 다시 선택해 주세요.');
+      if (isHeic) {
+        const { decodeHeicPhoto } = await import('./heicPhotos');
+        image = converted = await decodeHeicPhoto(file);
+      } else {
+        if (typeof FileReader === 'undefined') throw new Error('사진을 읽지 못했어요. JPG 또는 PNG 사진으로 다시 선택해 주세요.');
+        const data = await readDataUrl(file);
+        try { image = await loadImage(data); }
+        catch {
+          throw new Error('사진 내용을 해석하지 못했어요. 갤러리에서 편집 후 새 파일로 저장하거나 화면을 캡처한 사진을 다시 선택해 주세요.');
+        }
       }
     }
-    if (!image.naturalWidth || !image.naturalHeight) throw new Error('사진 크기를 확인하지 못했어요.');
-    const canvas = document.createElement('canvas');
+    const width = converted ? converted.width : (image as HTMLImageElement).naturalWidth;
+    const height = converted ? converted.height : (image as HTMLImageElement).naturalHeight;
+    if (!width || !height) throw new Error('사진 크기를 확인하지 못했어요.');
+    canvas = document.createElement('canvas');
     for (const edge of [1280, 960, 720, 540, 400]) {
-      const scale = Math.min(1, edge / Math.max(image.naturalWidth, image.naturalHeight));
-      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const scale = Math.min(1, edge / Math.max(width, height));
+      canvas.width = Math.max(1, Math.round(width * scale));
+      canvas.height = Math.max(1, Math.round(height * scale));
       const context = canvas.getContext('2d');
       if (!context) throw new Error('사진 압축을 지원하지 않는 브라우저예요.');
       context.fillStyle = '#fff';
@@ -62,5 +71,7 @@ export async function compressReviewPhoto(file: File): Promise<string> {
     throw new Error('사진을 충분히 압축하지 못했어요. 다른 사진을 선택해 주세요.');
   } finally {
     if (url) URL.revokeObjectURL(url);
+    if (converted) { converted.width = 1; converted.height = 1; }
+    if (canvas) { canvas.width = 1; canvas.height = 1; }
   }
 }

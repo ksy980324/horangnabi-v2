@@ -52,9 +52,9 @@ export function StopReviewForm({ stop, trip, busy, status, shared, onClose, onSa
         <div className="review-photos">{photos.map((photo, index) => <ReviewPhoto key={index} photo={photo} index={index}>
           <button type="button" className="text-button danger" aria-label={`후기 사진 ${index + 1} 삭제`} onClick={() => { setPhotos(items => items.filter((_, i) => i !== index)); setError(''); }}><Trash2 size={14}/>삭제</button>
         </ReviewPhoto>)}</div>
-        <input ref={input} type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif" onChange={event => void addPhotos(event)}/>
+        <input ref={input} type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif,image/heic-sequence,image/heif-sequence,.jpg,.jpeg,.png,.webp,.avif,.heic,.heif" onChange={event => void addPhotos(event)}/>
         <button type="button" className="secondary" disabled={photos.length >= reviewLimits.photos} onClick={() => input.current?.click()}><Camera size={16}/>사진 첨부 · {photos.length}/3</button>
-        <p className="muted">사진은 기기에서 압축해 저장해요. 일정당 최대 3장 · 여행 전체 사진 {Math.ceil(used / 1024)}/600KB. 원본은 별도로 보관해 주세요.</p>
+        <p className="muted">HEIC·HEIF 사진도 기기에서 변환·압축해 저장해요. 일정당 최대 3장 · 여행 전체 사진 {Math.ceil(used / 1024)}/600KB. 원본은 별도로 보관해 주세요.</p>
         {stop.review && <button type="button" className="text-button danger" onClick={() => { if (confirm('이 일정의 후기와 사진을 모두 비울까요? 저장을 눌러야 반영돼요.')) { setText(''); setPhotos([]); setError(''); } }}>후기 비우기</button>}
       </fieldset>
       {error && <p className="error" role="alert">{error}</p>}

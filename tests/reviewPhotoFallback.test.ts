@@ -25,7 +25,7 @@ test('mobile blob failure falls back to local file reading, handles missing MIME
     assert.equal(await compressReviewPhoto(new File(['jpeg'], 'camera.jpg')), 'data:image/jpeg;base64,/9j/AAAA');
     assert.equal(reads, 1); assert.ok(sources.some(source => source.startsWith('data:image/jpeg')));
     decodeFails = true;
-    await assert.rejects(compressReviewPhoto(new File(['heic'], 'camera.heic', { type: 'image/heic' })), /HEIC\/HEIF/);
+    await assert.rejects(compressReviewPhoto(new File(['heic'], 'camera.heic', { type: 'image/heic' })), /HEIC/);
     readFails = true;
     await assert.rejects(compressReviewPhoto(new File(['jpeg'], 'camera.jpg', { type: 'image/jpeg' })), /기기에 저장/);
     assert.equal(revoked.length, 3);

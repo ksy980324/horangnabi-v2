@@ -1,0 +1,8 @@
+HEIC decoder: heic-to 1.6.7 / libheif 1.23.7, LGPL-3.0-or-later.
+License: heic-license.txt and heic-gpl.txt (same directory).
+Corresponding source and build instructions:
+https://github.com/hoppergee/heic-to/tree/78345a3fcdb4a1d70d513fce2646aeff0127f7ba
+https://github.com/strukturag/libheif/tree/v1.23.7
+The worker string from dist/csp/heic-to.js is distributed without changes.
+Application wrapper and replaceable worker:
+https://github.com/ksy980324/horangnabi-v2/tree/main/src
