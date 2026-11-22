@@ -1,5 +1,5 @@
 import type { Trip } from '../types';
-import { isReviewPhoto } from './stopReviews';
+import { isReviewPhotoValue } from './stopReviews';
 
 export type BlogOptions = { date?: string; includeUnreviewed: boolean; includePhotos: boolean; tone: 'personal' | 'friendly' | 'practical' };
 export type BlogPhoto = { filename: string; dataUrl: string; place: string; date: string };
@@ -17,7 +17,7 @@ export function buildBlogMaterials(trip: Trip, options: BlogOptions): BlogMateri
     const daySections: string[] = [];
     for (const [index, stop] of stops.entries()) {
       const text = stop.review?.text.trim() ?? '';
-      const validPhotos = stop.review?.photos.filter(isReviewPhoto) ?? [];
+      const validPhotos = stop.review?.photos.filter(isReviewPhotoValue) ?? [];
       const reviewed = !!text || validPhotos.length > 0;
       if (!reviewed && !options.includeUnreviewed) continue;
       if (reviewed) reviewedCount++; else plannedCount++;

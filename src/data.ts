@@ -1,4 +1,4 @@
-import { isStopReview, tripReviewPhotoBytes, reviewLimits } from './services/stopReviews';
+import { isStopReview, tripReviewPhotoBytes, tripReviewPhotoCount, reviewLimits } from './services/stopReviews';
 import { isSouvenirItem, souvenirLimit } from './services/souvenirs';
 import { MAX_TRIP_MEMBERS } from './services/tripMembers.ts';
 import { categories, type Database, type Stop, type Trip } from './types.ts';
@@ -43,7 +43,7 @@ export function reorderStop(trip: Trip, date: string, id: string, target: number
   return { ...trip, stops: trip.stops.map(item => item.date === date ? day[next++] : item) };
 }
 const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && Number.isFinite(Date.parse(v + 'T00:00:00Z')) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
-export function parseDatabase(value: unknown): Database {
+export function parseDatabase(value: unknown, allowPhotoReferences = false): Database {
   const fail = () => { throw new Error('올바른 호랑나비 백업 파일이 아닙니다.'); };
   if (!value || typeof value !== 'object') return fail();
   const db = value as Database;
@@ -89,7 +89,7 @@ export function parseDatabase(value: unknown): Database {
     }
     for (const s of t.stops) {
       if (!s || typeof s.id !== 'string' || ids.has(s.id) || typeof s.name !== 'string' || !s.name.trim() || typeof s.address !== 'string' || !isDate(s.date) || s.date < t.start || s.date > t.end || typeof s.time !== 'string' || (s.time !== '' && !/^([01]\d|2[0-3]):[0-5]\d$/.test(s.time)) || !categories.includes(s.category) || typeof s.memo !== 'string') return fail();
-      if (s.review !== undefined && !isStopReview(s.review)) return fail();
+      if (s.review !== undefined && !isStopReview(s.review, allowPhotoReferences)) return fail();
       if (s.mapUrl !== undefined && !isGoogleMapsLink(s.mapUrl)) return fail();
       if (s.photoUrl !== undefined && !isPhotoUrl(s.photoUrl)) return fail();
       if (s.flightReservationId !== undefined && (typeof s.flightReservationId !== 'string' || !s.flightReservationId.trim())) return fail();
@@ -98,7 +98,7 @@ export function parseDatabase(value: unknown): Database {
       if (s.lat !== undefined && (!Number.isFinite(s.lat) || Math.abs(s.lat) > 90 || !Number.isFinite(s.lng) || Math.abs(s.lng!) > 180)) return fail();
       ids.add(s.id);
     }
-    if (tripReviewPhotoBytes(t) > reviewLimits.tripPhotoBytes) return fail();
+    if (tripReviewPhotoBytes(t) > reviewLimits.tripPhotoBytes || tripReviewPhotoCount(t) > reviewLimits.tripPhotos) return fail();
   }
   return db;
 }

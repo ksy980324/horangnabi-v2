@@ -1,4 +1,5 @@
-import { ensureReviewCapacity } from './stopReviews';
+import { ensureReviewCapacity, ReviewCapacityError } from './stopReviews';
+import { planReviewPhotoStorage, tripPhotoReferences, validatePhotoTransition } from './reviewPhotoStorage';
 import { collection, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, Timestamp, where } from 'firebase/firestore';
 import { parseDatabase, uid } from '../data';
 import type { Trip } from '../types';
@@ -23,7 +24,7 @@ export function sharingReferences(userId: string, tripId: string) {
 
 function tripPayload(trip: Trip, revision: number, userId: string, access: TripAccess) {
   ensureReviewCapacity(trip);
-  const clean = parseDatabase(JSON.parse(JSON.stringify({ version: 1, trips: [trip] })));
+  const clean = parseDatabase(JSON.parse(JSON.stringify({ version: 1, trips: [trip] })), true);
   return { trip: clean.trips[0], revision, updatedAt: serverTimestamp(), updatedBy: userId, ...access };
 }
 
@@ -31,14 +32,25 @@ export async function writeSharedTrip(userId: string, tripId: string, expected: 
   const { firestore } = session(userId);
   const ref = doc(sharedReferences(userId).trips, tripId);
   const stamp={id:uid(),actorId:userId,at:Date.now()};
+  const plan = trip && planReviewPhotoStorage(trip, uid);
   await runTransaction(firestore, async transaction => {
     const current = await transaction.get(ref);
     const revision = nextSharedRevision(current.exists(), current.data()?.revision, expected);
     const access = current.exists() ? parseTripAccess(current.data()) : initialTripAccess(userId, parseUserProfile((await transaction.get(profileReference(userId))).data()).nickname);
-    if (trip) transaction.set(ref, tripPayload(recordTripActivity(current.data()?.trip,trip,{...stamp,actorName:access.memberNames[userId]}), revision, userId, access));
+    if (trip && plan) {
+      const removed = validatePhotoTransition(current.data()?.trip, plan);
+      const recorded = recordTripActivity(current.data()?.trip, trip, { ...stamp, actorName: access.memberNames[userId] });
+      const stored = { ...plan.trip, activityLog: recorded.activityLog };
+      transaction.set(ref, tripPayload(stored, revision, userId, access));
+      for (const upload of plan.uploads.values()) transaction.set(doc(ref, 'photos', upload.id), {
+        dataUrl: upload.dataUrl, bytes: upload.bytes, createdBy: userId, createdAt: serverTimestamp(),
+      });
+      for (const id of removed) transaction.delete(doc(ref, 'photos', id));
+    }
     else {
       if (access.ownerId !== userId) throw new Error('여행장만 여행을 삭제할 수 있어요.');
       if (access.inviteToken) transaction.delete(doc(firestore, 'tripInvites', access.inviteToken));
+      for (const id of tripPhotoReferences(current.data()?.trip).keys()) transaction.delete(doc(ref, 'photos', id));
       transaction.delete(ref);
     }
   });
@@ -50,11 +62,21 @@ export async function importSharedTrips(userId: string, trips: Trip[]) {
   const refs = sharedReferences(userId);
   const copies = trips.map(trip => ({ ...trip, id: uid() }));
   const stamps=copies.map(()=>({id:uid(),actorId:userId,at:Date.now()}));
+  const plans = copies.map(trip => planReviewPhotoStorage(trip, uid));
+  // Keep imports atomic and below Firestore's 10 MiB request / 500 write limits.
+  const photoBytes = plans.reduce((sum, plan) => sum + [...plan.uploads.values()].reduce((size, photo) => size + photo.bytes, 0), 0);
+  const writeCount = plans.reduce((sum, plan) => sum + 1 + plan.uploads.size, 0);
+  if (writeCount > 450 || plans.filter(plan => plan.uploads.size).length > 8 || photoBytes + JSON.stringify(plans.map(plan => plan.trip)).length * 3 > 9 * 1024 * 1024) throw new ReviewCapacityError('한 번에 가져올 사진과 여행이 너무 많아요. 여행별 JSON 백업으로 나누어 가져와 주세요. 기존 여행은 변경하지 않았어요.');
   await runTransaction(firestore, async transaction => {
     const nickname = parseUserProfile((await transaction.get(profileReference(userId))).data()).nickname;
     const documents = await Promise.all(copies.map(trip => transaction.get(doc(refs.trips, trip.id))));
     if (documents.some(snapshot => snapshot.exists())) throw new SharedTripConflict();
-    for (const [index,trip] of copies.entries()) transaction.set(doc(refs.trips, trip.id), tripPayload(recordTripActivity(undefined,trip,{...stamps[index],actorName:nickname}), 1, userId, initialTripAccess(userId, nickname)));
+    for (const [index,trip] of copies.entries()) {
+      const plan = plans[index];
+      validatePhotoTransition(undefined, plan);
+      transaction.set(doc(refs.trips, trip.id), tripPayload(recordTripActivity(undefined,plan.trip,{...stamps[index],actorName:nickname}), 1, userId, initialTripAccess(userId, nickname)));
+      for (const upload of plan.uploads.values()) transaction.set(doc(refs.trips, trip.id, 'photos', upload.id), { dataUrl: upload.dataUrl, bytes: upload.bytes, createdBy: userId, createdAt: serverTimestamp() });
+    }
   });
 }
 
@@ -98,7 +120,7 @@ export async function checkSharedPackingItem(userId: string, tripId: string, ite
     if (!current.exists()) throw new SharedTripConflict();
     const { trip, revision } = current.data();
     const access = parseTripAccess(current.data());
-    const validated = parseDatabase({ version: 1, trips: [trip] }).trips[0];
+    const validated = parseDatabase({ version: 1, trips: [trip] }, true).trips[0];
     const item = validated.packingItems?.find(entry => entry.id === itemId);
     if (!item || !access.memberIds.includes(userId) || !Number.isSafeInteger(revision)) throw new SharedTripConflict();
     observe(revision);

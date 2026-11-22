@@ -25,7 +25,7 @@ export function createSharedSnapshotReader(userId?: string) {
       const data = document.data();
       const { trip, revision } = data;
       if (typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 1) throw new Error('공유 여행 버전을 확인해 주세요.');
-      const validated: Trip = parseDatabase({ version: 1, trips: [trip] }).trips[0];
+      const validated: Trip = parseDatabase({ version: 1, trips: [trip] }, true).trips[0];
       if (validated.id !== document.id) throw new Error('공유 여행 ID를 확인해 주세요.');
       revisions.set(document.id, revision);
       if (userId) {

@@ -4,8 +4,10 @@ import type { Trip } from '../types';
 import { datesBetween } from '../data';
 import { buildBlogMaterials, type BlogOptions } from '../services/blogMaterials';
 import { Modal } from './Modal';
+import { ReviewPhotoImage, useReviewPhotoAccess } from './ReviewPhotoAccess';
 
 export function BlogMaterials({ trip, onClose }: { trip: Trip; onClose: () => void }) {
+  const photoAccess = useReviewPhotoAccess();
   const [scope, setScope] = useState('all'), [tone, setTone] = useState<BlogOptions['tone']>('personal');
   const [includeUnreviewed, setIncludeUnreviewed] = useState(false), [includePhotos, setIncludePhotos] = useState(true);
   const [busy, setBusy] = useState(false), [status, setStatus] = useState('');
@@ -25,7 +27,9 @@ export function BlogMaterials({ trip, onClose }: { trip: Trip; onClose: () => vo
     setBusy(true); setStatus('');
     try {
       const { createBlogArchive } = await import('../services/blogArchive');
-      const archive = createBlogArchive(materials);
+      const photos = [];
+      for (const photo of materials.photos) photos.push({ ...photo, dataUrl: await photoAccess.read(photo.dataUrl) });
+      const archive = createBlogArchive({ ...materials, photos });
       const url = URL.createObjectURL(new Blob([archive], { type: 'application/zip' }));
       const link = document.createElement('a');
       try {
@@ -50,7 +54,7 @@ export function BlogMaterials({ trip, onClose }: { trip: Trip; onClose: () => vo
       {!materials.stopCount && <p className="blog-empty">선택한 범위에 후기가 없어요. 일정에 후기·사진을 저장하거나, 계획 자료 포함을 선택해 주세요.</p>}
       <div className="blog-actions"><button className="primary" disabled={busy || !materials.stopCount} onClick={() => void copy()}><Copy size={16}/>작성 요청문 복사</button><button className="secondary" disabled={busy || !materials.stopCount} onClick={() => void download()}><Download size={16}/>{materials.photos.length ? '요청문·사진 ZIP' : '요청문 ZIP'}</button></div>
       <details ref={preview} className="blog-preview"><summary>전달할 작성 요청문 미리보기</summary><textarea ref={prompt} readOnly rows={12} aria-label="ChatGPT 작성 요청문" value={materials.prompt}/></details>
-      {!!materials.photos.length && <details className="blog-photo-guide"><summary>사진 파일과 장소 확인 · {materials.photos.length}장</summary><ul>{materials.photos.map(photo => <li key={photo.filename}><img src={photo.dataUrl} alt={`${photo.place} 후기 사진`} loading="lazy"/><div><strong>{photo.place}</strong><small>{photo.filename}</small></div></li>)}</ul></details>}
+      {!!materials.photos.length && <details className="blog-photo-guide"><summary>사진 파일과 장소 확인 · {materials.photos.length}장</summary><ul>{materials.photos.map(photo => <li key={photo.filename}><ReviewPhotoImage photo={photo.dataUrl} alt={`${photo.place} 후기 사진`}/><div><strong>{photo.place}</strong><small>{photo.filename}</small></div></li>)}</ul></details>}
       <ol className="blog-help"><li>작성 요청문을 복사해요.</li><li>ChatGPT 새 대화에 요청문을 붙여넣어요.</li><li>{materials.photos.length ? 'ZIP의 압축을 풀고 photos 폴더의 사진을 직접 첨부해요. 사진이 많으면 하루씩 나누어 요청해 보세요.' : '블로그 초안을 작성해 달라고 요청해요.'}</li></ol>
       <a className="secondary blog-chatgpt-link" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer"><ExternalLink size={15}/>ChatGPT 열기</a>
       <p className="muted">추가 AI API 설정 없이 사용해요. 자료는 이 기기에서 정리하고 복사·다운로드하며, ChatGPT에는 직접 전달해요. 사진은 저장된 압축본이에요.</p>

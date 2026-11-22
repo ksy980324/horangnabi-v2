@@ -1,4 +1,6 @@
 import { saveStopReview } from '../src/services/stopReviews.ts';
+import { planReviewPhotoStorage, validatePhotoTransition } from '../src/services/reviewPhotoStorage.ts';
+import { parseReviewPhotoReference } from '../src/services/reviewPhotoReferences.ts';
 import { before, beforeEach, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -36,6 +38,93 @@ const seed = async (id = 'trip-a', owner = 'alice', members = ['alice', 'bob'], 
   return value;
 };
 const token = 'a'.repeat(64);
+
+const inlinePhoto = 'data:image/jpeg;base64,/9j/AAAA';
+const photoData = (actor, dataUrl = inlinePhoto) => ({ dataUrl, bytes: dataUrl.length, createdBy: actor, createdAt: serverTimestamp() });
+const photoRef = (db, trip = 'trip-a', id = 'a'.repeat(32)) => doc(db, 'sharedTrips', trip, 'photos', id);
+const nextPhotoId = () => { let id = 0; return () => (++id).toString(16).padStart(32, '0'); };
+async function storePhotoPlan(db, actor, before, next) {
+  const plan = planReviewPhotoStorage(next, nextPhotoId());
+  const ref = doc(db, 'sharedTrips', before.trip.id);
+  await runTransaction(db, async transaction => {
+    await transaction.get(ref);
+    const removed = validatePhotoTransition(before.trip, plan);
+    transaction.set(ref, update(before, actor, { trip: plan.trip }));
+    for (const item of plan.uploads.values()) transaction.set(photoRef(db, next.id, item.id), photoData(actor, item.dataUrl));
+    for (const id of removed) transaction.delete(photoRef(db, next.id, id));
+  });
+  return plan;
+}
+
+test('separate photo documents migrate legacy photos, permit only participants and remain immutable', async () => {
+  const before = await seed();
+  const alice = client('alice'), bob = client('bob');
+  before.trip.stops = [{ id: 'stop', date: before.trip.start, time: '', name: 'Photo place', category: '관광', address: '', memo: '', review: { text: 'Review', photos: [inlinePhoto] } }];
+  await environment.withSecurityRulesDisabled(context => setDoc(doc(context.firestore(), 'sharedTrips', 'trip-a'), before));
+  const plan = await assertSucceeds(storePhotoPlan(alice, 'alice', before, before.trip));
+  const id = [...plan.uploads.keys()][0];
+  const root = (await getDoc(doc(bob, 'sharedTrips', 'trip-a'))).data();
+  assert.ok(!JSON.stringify(root.trip).includes('data:image'));
+  assert.equal((await assertSucceeds(getDoc(photoRef(bob, 'trip-a', id)))).data().dataUrl, inlinePhoto);
+  assert.equal(parseReviewPhotoReference(root.trip.stops[0].review.photos[0]).bytes, inlinePhoto.length);
+  await assertFails(getDoc(photoRef(client('charlie'), 'trip-a', id)));
+  await assertFails(getDoc(photoRef(environment.unauthenticatedContext().firestore(), 'trip-a', id)));
+  await seed('trip-b', 'charlie', ['charlie']);
+  await assertFails(getDoc(photoRef(bob, 'trip-b', id)));
+  await assertFails(updateDoc(photoRef(bob, 'trip-a', id), { dataUrl: inlinePhoto, bytes: inlinePhoto.length }));
+  await assertFails(setDoc(photoRef(bob), photoData('bob')));
+  await assertFails(deleteDoc(photoRef(bob, 'trip-a', id)));
+});
+
+test('new trips and photo documents commit atomically and malformed photos roll back every write', async () => {
+  const alice = client('alice');
+  const batch = writeBatch(alice);
+  const value = payload();
+  value.trip.stops = [{ id: 'stop', review: { text: '', photos: ['review-photo:' + 'a'.repeat(32) + ':' + inlinePhoto.length] } }];
+  batch.set(doc(alice, 'sharedTrips', 'trip-a'), value);
+  batch.set(photoRef(alice), photoData('alice'));
+  await assertSucceeds(batch.commit());
+  const current = (await getDoc(doc(alice, 'sharedTrips', 'trip-a'))).data();
+  const invalid = writeBatch(alice);
+  invalid.set(doc(alice, 'sharedTrips', 'trip-a'), update(current, 'alice'));
+  invalid.set(photoRef(alice, 'trip-a', 'b'.repeat(32)), photoData('alice', 'data:image/svg+xml;base64,evil'));
+  await assertFails(invalid.commit());
+  assert.equal((await getDoc(doc(alice, 'sharedTrips', 'trip-a'))).data().revision, 1);
+  assert.equal((await getDoc(photoRef(alice, 'trip-a', 'b'.repeat(32)))).exists(), false);
+  await assertFails(setDoc(photoRef(client('charlie'), 'trip-a', 'c'.repeat(32)), photoData('charlie')));
+});
+
+test('photo access follows removal immediately and owner deletion can clean up the last photo', async () => {
+  const before = await seed();
+  const alice = client('alice'), bob = client('bob');
+  const batch = writeBatch(alice);
+  batch.set(doc(alice, 'sharedTrips', 'trip-a'), update(before, 'alice'));
+  batch.set(photoRef(alice), photoData('alice'));
+  await assertSucceeds(batch.commit());
+  const current = (await getDoc(doc(alice, 'sharedTrips', 'trip-a'))).data();
+  await assertSucceeds(setDoc(doc(alice, 'sharedTrips', 'trip-a'), update(current, 'alice', { memberIds: ['alice'], memberNames: { alice: 'alice' } })));
+  await assertFails(getDoc(photoRef(bob)));
+  const remove = writeBatch(alice);
+  remove.delete(photoRef(alice)); remove.delete(doc(alice, 'sharedTrips', 'trip-a'));
+  await assertSucceeds(remove.commit());
+  await environment.withSecurityRulesDisabled(async context => assert.equal((await getDoc(photoRef(context.firestore()))).exists(), false));
+});
+
+test('more than 600KB of photos store outside the trip and stale revisions cannot leave orphan photos', async () => {
+  const before = await seed();
+  const alice = client('alice'), bob = client('bob');
+  const large = 'data:image/jpeg;base64,/9j/' + 'A'.repeat(200000);
+  const batch = writeBatch(alice);
+  batch.set(doc(alice, 'sharedTrips', 'trip-a'), update(before, 'alice'));
+  for (let i = 1; i <= 5; i++) batch.set(photoRef(alice, 'trip-a', i.toString(16).padStart(32, '0')), photoData('alice', large));
+  await assertSucceeds(batch.commit());
+  assert.equal((await getDoc(photoRef(bob, 'trip-a', '1'.padStart(32, '0')))).data().dataUrl, large);
+  const stale = writeBatch(bob);
+  stale.set(doc(bob, 'sharedTrips', 'trip-a'), update(before, 'bob'));
+  stale.set(photoRef(bob, 'trip-a', 'f'.repeat(32)), photoData('bob'));
+  await assertFails(stale.commit());
+  assert.equal((await getDoc(photoRef(alice, 'trip-a', 'f'.repeat(32)))).exists(), false);
+});
 
 test('activity commits with the trip, retains concurrent packing actors and follows membership access', async () => {
   await seed();

@@ -1,4 +1,5 @@
 import type { BlogMaterials } from './blogMaterials';
+import { isReviewPhoto } from './stopReviews';
 
 type ZipEntry = { name: string; data: Uint8Array };
 const encoder = new TextEncoder();
@@ -49,6 +50,7 @@ export function createStoredZip(entries: ZipEntry[]): Uint8Array<ArrayBuffer> {
 }
 
 export function createBlogArchive(materials: BlogMaterials) {
+  if (materials.photos.some(photo => !isReviewPhoto(photo.dataUrl))) throw new Error('사진을 모두 불러온 뒤 다시 내려받아 주세요.');
   if (!materials.stopCount) throw new Error('내려받을 후기나 일정을 먼저 선택해 주세요.');
   const instructions = [
     '호랑나비 블로그 글쓰기 자료',

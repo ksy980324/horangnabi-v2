@@ -103,6 +103,28 @@ service cloud.firestore {
         && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['trip', 'revision', 'updatedAt', 'updatedBy'])
           || accessChange(tripId) || nicknameChange());
       allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      match /photos/{photoId} {
+        // Photos are immutable and committed/deleted with a revision-checked parent.
+        allow get: if member(tripId);
+        allow create: if signedIn() && photoId.matches('^[a-f0-9]{32}$')
+          && request.resource.data.keys().hasAll(['dataUrl', 'bytes', 'createdBy', 'createdAt'])
+          && request.resource.data.keys().hasOnly(['dataUrl', 'bytes', 'createdBy', 'createdAt'])
+          && request.resource.data.dataUrl is string
+          && request.resource.data.dataUrl.size() <= 204800
+          && request.resource.data.dataUrl.matches('^data:image/jpeg;base64,/9j/[A-Za-z0-9+/]*={0,2}$')
+          && request.resource.data.bytes == request.resource.data.dataUrl.size()
+          && request.resource.data.createdBy == request.auth.uid && request.resource.data.createdAt == request.time
+          && request.auth.uid in getAfter(/databases/$(database)/documents/sharedTrips/$(tripId)).data.memberIds
+          && ((!exists(/databases/$(database)/documents/sharedTrips/$(tripId))
+              && getAfter(/databases/$(database)/documents/sharedTrips/$(tripId)).data.ownerId == request.auth.uid)
+            || (member(tripId) && getAfter(/databases/$(database)/documents/sharedTrips/$(tripId)).data.revision
+              == get(/databases/$(database)/documents/sharedTrips/$(tripId)).data.revision + 1));
+        allow delete: if signedIn() && member(tripId)
+          && ((!existsAfter(/databases/$(database)/documents/sharedTrips/$(tripId)) && owner(tripId))
+            || (request.auth.uid in getAfter(/databases/$(database)/documents/sharedTrips/$(tripId)).data.memberIds
+              && getAfter(/databases/$(database)/documents/sharedTrips/$(tripId)).data.revision
+                == get(/databases/$(database)/documents/sharedTrips/$(tripId)).data.revision + 1));
+      }
       match /requests/{userId} {
         allow get: if signedIn() && (request.auth.uid == userId || owner(tripId));
         allow list: if owner(tripId);

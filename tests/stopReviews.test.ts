@@ -47,10 +47,10 @@ test('photo budget applies across all stops and document capacity leaves room fo
   const full = { ...trip, stops: trip.stops.map(stop => ({ ...stop, review: { text: '', photos: [bigPhoto] } })) };
   assert.equal(tripReviewPhotoBytes(full), bigPhoto.length * full.stops.length);
   ensureReviewCapacity(full);
-  const overflowing = { ...full, stops: [...full.stops, ...full.stops.map(stop => ({ ...stop, id: stop.id + '-extra' }))] };
-  assert.throws(() => saveStopReview(overflowing, 'castle', review), /사진 용량/);
+  const overflowing = { ...full, stops: Array.from({ length: 50 }, (_, index) => ({ ...full.stops[0], id: 'photo-' + index })) };
+  assert.throws(() => saveStopReview(overflowing, overflowing.stops[0].id, review), /사진 용량/);
   assert.throws(() => parseDatabase({ version: 1, trips: [overflowing] }));
-  const crowded = { ...full, name: '한'.repeat(200000) };
+  const crowded = { ...full, name: '한'.repeat(350000) };
   assert.throws(() => ensureReviewCapacity(crowded), /저장 공간/);
   // Removing all photos remains possible even for a large legacy trip.
   ensureReviewCapacity({ ...crowded, stops: trip.stops });
@@ -87,7 +87,7 @@ test('review UI escapes content, shows photos, sharing and limits, and keeps ori
   assert.ok(!preview.includes('<script>'));
   assert.ok(preview.includes('후기 사진 1 확대'));
   const form = renderToStaticMarkup(createElement(StopReviewForm, { stop, trip, busy: false, status: '저장 실패', shared: true, onClose() {}, onSave() {} }));
-  for (const label of ['여행 참여자 모두', '교통편 메모', '3,000자', '1/3', '600KB', '저장 실패', '&lt;script&gt;private&lt;/script&gt;']) assert.ok(form.includes(label), label);
+  for (const label of ['여행 참여자 모두', '교통편 메모', '3,000자', '1/3', '200KB', '100장', '/8MB', '저장 실패', '&lt;script&gt;private&lt;/script&gt;']) assert.ok(form.includes(label), label);
 });
 
 test('photo compressor refuses non-photos and oversized originals before decoding', async () => {
