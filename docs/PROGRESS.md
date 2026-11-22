@@ -5,6 +5,7 @@
 ## 현재 구현
 
 ### 중단 작업 재개 및 재검증 (2026-11-22)
+- 후속 배포: Firebase 콘솔에서 사진 문서 권한 규칙을 게시했다. 연결된 GitHub 계정으로 코드를 올렸으며, 첫 CI에서 Node 직접 실행에 필요한 `.ts` 확장자 누락을 확인해 보완했다. 후속 CI와 Pages 반영 결과를 확인한다.
 - 사진 별도 저장 작업을 이어서 확인했다. 현재 코드에서 `npm run typecheck`, `npm test`(171개), `npm run build`가 모두 통과했다.
 - `npm run test:rules`는 Firebase CLI 준비 단계에서 진행되지 않았다. 오프라인 재시도는 CLI 캐시가 없어 `ENOTCACHED`로 실패했다. Java 실행 파일도 확인되지 않아 Firestore 권한 검사를 통과했다고 판단하지 않는다.
 - GitHub CLI의 기존 인증이 유효하지 않고, Git 연결도 `Could not resolve host: github.com`으로 실패했다. 서버 사진 규칙 게시·코드 push·Pages 배포·공개 화면 반영은 완료되지 않았다. 새 사진 저장 코드는 서버 규칙을 먼저 게시한 뒤 배포해야 한다.

@@ -1,5 +1,5 @@
 import type { StopReview, Trip } from '../types';
-import { maxReviewPhotoBytes, parseReviewPhotoReference, reviewPhotoSize } from './reviewPhotoReferences';
+import { maxReviewPhotoBytes, parseReviewPhotoReference, reviewPhotoSize } from './reviewPhotoReferences.ts';
 
 export const reviewLimits = { text: 3000, photos: 3, photoBytes: maxReviewPhotoBytes, tripPhotos: 100, tripPhotoBytes: 8 * 1024 * 1024, tripBytes: 900 * 1024 };
 export class ReviewCapacityError extends Error {}

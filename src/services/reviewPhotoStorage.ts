@@ -1,6 +1,6 @@
 import type { Database, Trip } from '../types';
-import { isReviewPhoto, ReviewCapacityError } from './stopReviews';
-import { parseReviewPhotoReference } from './reviewPhotoReferences';
+import { isReviewPhoto, ReviewCapacityError } from './stopReviews.ts';
+import { parseReviewPhotoReference } from './reviewPhotoReferences.ts';
 
 export const tripPhotoReferences = (trip?: Trip) => new Map((trip?.stops.flatMap(stop => stop.review?.photos ?? []) ?? []).flatMap(photo => {
   const ref = parseReviewPhotoReference(photo);
