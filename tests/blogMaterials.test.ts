@@ -103,3 +103,15 @@ test('blog dialog renders a manual ChatGPT handoff, safe text and source preview
   const empty = renderToStaticMarkup(createElement(BlogMaterials, { trip: { ...trip, stops: [] }, onClose() {} }));
   assert.ok(empty.includes('선택한 범위에 후기가 없어요')); assert.ok(empty.includes('disabled=""'));
 });
+
+
+test('personal tone preserves review voice and evaluations with modern structure and a sparse-review fallback', () => {
+  const materials = buildBlogMaterials(trip, { ...options, tone: 'personal' });
+  for (const text of ['내 후기 말투', '문장 끝맺음', '짧은 문단', '후기에 없는 유행어', '사진만 있으면 말투를 안다고 단정하지', '긍정·부정 평가와 강도']) assert.ok(materials.prompt.includes(text), text);
+  assert.ok(materials.prompt.includes('천천히 걸었다.'));
+  const plain = buildBlogMaterials(trip, { ...options, tone: 'practical' });
+  assert.ok(!plain.prompt.includes('말투 분석 결과'));
+  const markup = renderToStaticMarkup(createElement(BlogMaterials, { trip, onClose() {} }));
+  assert.ok(markup.includes('value="personal" selected=""'));
+  assert.ok(markup.includes('내 말투 + 요즘 블로그 느낌'));
+});

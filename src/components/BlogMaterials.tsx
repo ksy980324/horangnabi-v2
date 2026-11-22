@@ -6,7 +6,7 @@ import { buildBlogMaterials, type BlogOptions } from '../services/blogMaterials'
 import { Modal } from './Modal';
 
 export function BlogMaterials({ trip, onClose }: { trip: Trip; onClose: () => void }) {
-  const [scope, setScope] = useState('all'), [tone, setTone] = useState<BlogOptions['tone']>('friendly');
+  const [scope, setScope] = useState('all'), [tone, setTone] = useState<BlogOptions['tone']>('personal');
   const [includeUnreviewed, setIncludeUnreviewed] = useState(false), [includePhotos, setIncludePhotos] = useState(true);
   const [busy, setBusy] = useState(false), [status, setStatus] = useState('');
   const preview = useRef<HTMLDetailsElement>(null), prompt = useRef<HTMLTextAreaElement>(null);
@@ -41,10 +41,11 @@ export function BlogMaterials({ trip, onClose }: { trip: Trip; onClose: () => vo
       <p className="muted">일정과 후기·사진을 ChatGPT용 자료로 정리해요. 작성 요청문을 붙여넣고 사진을 직접 첨부하면 블로그 초안을 부탁할 수 있어요.</p>
       <fieldset className="editor-fields blog-options" disabled={busy} onChange={() => setStatus('')}>
         <div className="form-row"><label>작성 범위<select value={scope} onChange={event => setScope(event.target.value)}><option value="all">여행 전체</option>{dates.map((date, index) => <option key={date} value={date}>{index + 1}일차 · {date}</option>)}</select></label>
-        <label>글 분위기<select value={tone} onChange={event => setTone(event.target.value as BlogOptions['tone'])}><option value="friendly">친근한 여행 후기</option><option value="practical">담백한 정보 중심</option></select></label></div>
+        <label>글 분위기<select value={tone} onChange={event => setTone(event.target.value as BlogOptions['tone'])}><option value="personal">내 말투 + 요즘 블로그 느낌</option><option value="friendly">친근한 여행 후기</option><option value="practical">담백한 정보 중심</option></select></label></div>
         <label className="blog-checkbox"><input type="checkbox" checked={includePhotos} onChange={event => setIncludePhotos(event.target.checked)}/>후기 사진 포함</label>
         <label className="blog-checkbox"><input type="checkbox" checked={includeUnreviewed} onChange={event => setIncludeUnreviewed(event.target.checked)}/>후기 없는 일정도 계획 자료로 포함</label>
       </fieldset>
+      {tone === 'personal' && <p className="muted">후기의 말투와 표현을 살리고 도입·문단·소제목을 읽기 좋게 다듬도록 요청해요. 후기 글이 적으면 담백하고 친근한 문체를 사용해요.</p>}
       <p className="blog-material-count" role="status">후기 {materials.reviewedCount}곳 · 계획만 있는 일정 {materials.plannedCount}곳 · 사진 {materials.photos.length}장</p>
       {!materials.stopCount && <p className="blog-empty">선택한 범위에 후기가 없어요. 일정에 후기·사진을 저장하거나, 계획 자료 포함을 선택해 주세요.</p>}
       <div className="blog-actions"><button className="primary" disabled={busy || !materials.stopCount} onClick={() => void copy()}><Copy size={16}/>작성 요청문 복사</button><button className="secondary" disabled={busy || !materials.stopCount} onClick={() => void download()}><Download size={16}/>{materials.photos.length ? '요청문·사진 ZIP' : '요청문 ZIP'}</button></div>
